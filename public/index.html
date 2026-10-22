@@ -14,6 +14,7 @@
   :root[data-theme=light] { color-scheme:light; }
   input[type=search] { padding:6px 10px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--fg); font:inherit; }
   :root[data-theme=dark] { --bg:#111; --fg:#eee; --muted:#999; --line:#333; --accent:#fb923c; --card:#1b1b1b; --edge:#94a3b8; color-scheme:dark; }
+  .zoom button { padding:3px 11px; font-size:15px; background:transparent; color:var(--fg); border:1px solid var(--line); } .zoom button:first-child { border-radius:6px 0 0 6px; } .zoom button:last-child { border-radius:0 6px 6px 0; } .zoom button + button { margin-left:-1px; } #zreset { min-width:58px; font-size:13px; }
   #themebox { float:right; font-size:14px; color:var(--muted); }
   * { box-sizing: border-box; }
   body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.5 system-ui, sans-serif; }
@@ -122,6 +123,7 @@
       <label>Style: <select id="style"><option value="arch">Architecture</option><option value="cards">Cards</option></select></label>
       <label id="animLabel"><input type="checkbox" id="anim" checked> Animate traffic</label>
       <label><input type="checkbox" id="fit"> Fit to width</label>
+      <span id="zoombox" class="zoom"><button type="button" id="zout" title="Zoom out">−</button><button type="button" id="zreset" title="Back to 100%">100%</button><button type="button" id="zin" title="Zoom in">+</button></span>
     </div>
   </div>
   <div id="legend" class="legend"></div>
@@ -219,7 +221,7 @@ async function draw() {
     if (arch) $('legend').innerHTML = '<span class="k"><b style="color:#e8710a">orange dashed arrows</b> traffic flow: from the internet and load balancers, through compute, to data stores (inferred from references in the code)</span><span class="k"><b>boxes</b> AWS Cloud / Azure, then VPC / virtual network, then subnet; green = public, blue = private (by name)</span><span class="k"><b>×N</b> several of that resource; click an icon for details</span>';
     $('out').innerHTML = arch ? renderArchitecture(view, { animate: $('anim').checked }) : renderDiagram(shownGraph, { direction: $('dir').value, animate: $('anim').checked });
     const el = $('out').querySelector('svg');
-    if ($('fit').checked && el) { el.removeAttribute('height'); el.style.width = '100%'; el.style.height = 'auto'; }
+    applyZoom();
   } catch (e) { $('out').textContent = 'Could not draw this view: ' + e.message; }
 }
 
@@ -237,6 +239,23 @@ function drawCode() {
   $('codeview').innerHTML = files.map((f) => `${want ? '' : `<b>── ${H(f.path)} ──</b>\n`}${codeHtml(f.content)}`).join('\n');
 }
 $('codefile').addEventListener('change', drawCode);
+
+// Zoom scales the drawing's size; the box around it scrolls to pan. Ctrl/Cmd + mouse wheel zooms too.
+let zoom = 1;
+function applyZoom() {
+  const el = $('out').querySelector('svg');
+  $('zreset').textContent = `${Math.round(zoom * 100)}%`;
+  if (!el) return;
+  const [w, h] = (el.getAttribute('viewBox') ?? '').split(/[ ,]+/).slice(2).map(Number);
+  if ($('fit').checked) { el.removeAttribute('height'); el.style.width = `${zoom * 100}%`; el.style.height = 'auto'; }
+  else if (w && h) { el.style.width = `${Math.round(w * zoom)}px`; el.style.height = `${Math.round(h * zoom)}px`; el.setAttribute('width', Math.round(w * zoom)); el.setAttribute('height', Math.round(h * zoom)); }
+}
+function setZoom(z) { zoom = Math.min(4, Math.max(0.2, Math.round(z * 100) / 100)); applyZoom(); }
+$('zin').addEventListener('click', () => setZoom(zoom * 1.25));
+$('zout').addEventListener('click', () => setZoom(zoom / 1.25));
+$('zreset').addEventListener('click', () => setZoom(1));
+$('fit').addEventListener('change', () => { zoom = 1; applyZoom(); });
+$('out').addEventListener('wheel', (e) => { if (!(e.ctrlKey || e.metaKey)) return; e.preventDefault(); setZoom(zoom * (e.deltaY < 0 ? 1.1 : 1 / 1.1)); }, { passive: false });
 
 function showChecks(checks) {
   const box = $('checks');
