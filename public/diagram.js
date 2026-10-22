@@ -67,13 +67,19 @@ export function renderDiagram(graph, { direction = 'LR', link = null } = {}) {
   g.setDefaultEdgeLabel(() => ({}));
 
   const byId = new Map(graph.nodes.map((n) => [n.id, n]));
+  const arrows = reduceEdges(graph.edges);
+  const linked = new Set(arrows.flatMap((e) => [e.from, e.to]));
   const entry = new Map(); // expanded module -> the card edges attach to
   for (const n of graph.nodes) {
     if (isContainer(n)) {
       g.setNode(n.id, {});
-      g.setNode(`${n.id}#hdr`, cell(W, 46, { ref: n, hdr: true }));
-      g.setParent(`${n.id}#hdr`, n.id);
-      entry.set(n.id, `${n.id}#hdr`);
+      // The module's own card only exists to anchor arrows; skip it when nothing connects to the module
+      // (unless the box would otherwise be empty).
+      if (linked.has(n.id) || !graph.nodes.some((c) => c.parent === n.id)) {
+        g.setNode(`${n.id}#hdr`, cell(W, 46, { ref: n, hdr: true }));
+        g.setParent(`${n.id}#hdr`, n.id);
+        entry.set(n.id, `${n.id}#hdr`);
+      }
     } else {
       g.setNode(n.id, cell(W, H, { ref: n }));
     }
@@ -81,7 +87,7 @@ export function renderDiagram(graph, { direction = 'LR', link = null } = {}) {
   for (const n of graph.nodes) if (n.parent && byId.has(n.parent)) g.setParent(n.id, n.parent);
 
   // Arrows run from the provider to the thing that uses it (VPC -> subnet -> instance).
-  const edges = reduceEdges(graph.edges).map((e) => [entry.get(e.to) ?? e.to, entry.get(e.from) ?? e.from]);
+  const edges = arrows.map((e) => [entry.get(e.to) ?? e.to, entry.get(e.from) ?? e.from]);
   for (const [from, to] of edges) if (g.hasNode(from) && g.hasNode(to)) g.setEdge(from, to);
   dagre.layout(g);
 
