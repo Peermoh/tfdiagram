@@ -17,7 +17,7 @@ const AWS = [
   [['aws_nat_gateway'], ['nat gateway']],
   [['aws_vpn_gateway'], ['vpn gateway']],
   [['aws_customer_gateway'], ['customer gateway']],
-  [['aws_subnet', 'aws_db_subnet_group', 'aws_elasticache_subnet_group', 'aws_redshift_subnet_group'], ['private subnet', 'public subnet']],
+  // no generic "subnet" icon exists (only Public/Private subnet group frames), so subnets keep the built-in icon
   [['aws_route_table', 'aws_default_route_table', 'aws_route'], ['route table', 'router']],
   [['aws_eip'], ['elastic ip address', 'elastic ip']],
   [['aws_network_acl', 'aws_default_network_acl'], ['network access control list', 'network acl']],
@@ -112,7 +112,8 @@ const sizeOf = (file) => Number(/_(\d+)\.svg$/i.exec(file)?.[1] ?? /[\\/](\d+)[\
 // Picks, for each terraform type, the best-named file. Returns { type: file }.
 export function matchIcons(files, table) {
   const usable = files
-    .filter((f) => /\.svg$/i.test(f) && !/category|dark|(^|[^a-z])bg-dark/i.test(f))
+    // skip macOS zip junk (__MACOSX/, ._files), category/group icons and dark-background variants
+    .filter((f) => /\.svg$/i.test(f) && !/__MACOSX|[\\/]\._|category|dark|(^|[^a-z])bg-dark/i.test(f))
     .map((f) => ({ file: f, toks: tokens(f), size: sizeOf(f), res: /^res[_-]/i.test(basename(f)) }));
   const out = {};
   for (const [types, phrases] of table) {
