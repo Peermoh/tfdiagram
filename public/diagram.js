@@ -286,7 +286,8 @@ const nice = (n) => (n.label && !/\.tf:\d+$/.test(n.label) ? n.label : n.name);
 const TW = 132;
 const TH = 112;
 
-export function renderArchitecture(graph, { animate = true } = {}) {
+export function renderArchitecture(graph, { animate = true, direction = 'LR' } = {}) {
+  const lr = direction !== 'TB';
   const dagre = globalThis.dagre;
   const azure = graph.nodes.some((n) => n.type?.startsWith('azurerm_'));
   const tiles = graph.nodes.filter((n) => !(n.kind === 'module' && n.expanded));
@@ -314,7 +315,7 @@ export function renderArchitecture(graph, { animate = true } = {}) {
   const subHome = new Map(subs.map((s) => [s.id, [...(out.get(s.id) ?? [])].find((t) => netIds.has(t)) ?? null]));
 
   const g = new dagre.graphlib.Graph({ compound: true });
-  g.setGraph({ rankdir: 'LR', nodesep: 46, ranksep: 70, edgesep: 16, marginx: 24, marginy: 24 });
+  g.setGraph({ rankdir: lr ? 'LR' : 'TB', nodesep: 46, ranksep: 70, edgesep: 16, marginx: 24, marginy: 24 });
   g.setDefaultEdgeLabel(() => ({}));
   const cloud = { label: azure ? 'Azure' : 'AWS Cloud', color: azure ? ARCH.azure : ARCH.cloud, kind: 'cloud' };
   g.setNode('#cloud', { cloud });
@@ -429,12 +430,17 @@ export function renderArchitecture(graph, { animate = true } = {}) {
   for (const e of g.edges()) {
     const pts = g.edge(e).points.map((p) => ({ ...p }));
     const a = g.node(e.v); const z = g.node(e.w);
-    // leave and enter at the middle of the icons, with one bend halfway
-    const mid = (n) => (n.net ? n.y - 8 : n.y - TH / 2 + 32);
-    const x1 = a.x + 34; const y1 = mid(a);
-    const x2 = z.x - 38; const y2 = mid(z);
-    const m = (x1 + x2) / 2;
-    const d = y1 === y2 ? `M${x1} ${y1} L${x2} ${y2}` : `M${x1} ${y1} L${m} ${y1} L${m} ${y2} L${x2} ${y2}`;
+    // leave and enter at the icons (middle of the icon row when left to right, its bottom / top when top to bottom), with one bend halfway
+    const cy = (n) => (n.net ? n.y - 8 : n.y - TH / 2 + 32);
+    let d;
+    if (lr) {
+      const x1 = a.x + 34; const y1 = cy(a); const x2 = z.x - 38; const y2 = cy(z); const m = (x1 + x2) / 2;
+      d = y1 === y2 ? `M${x1} ${y1} L${x2} ${y2}` : `M${x1} ${y1} L${m} ${y1} L${m} ${y2} L${x2} ${y2}`;
+    } else {
+      const top = (n) => (n.net ? n.y - 48 : n.y - TH / 2);
+      const x1 = a.x; const y1 = a.net ? a.y + 50 : top(a) + TH; const x2 = z.x; const y2 = top(z) - 4; const m = (y1 + y2) / 2;
+      d = x1 === x2 ? `M${x1} ${y1} L${x2} ${y2}` : `M${x1} ${y1} L${x1} ${m} L${x2} ${m} L${x2} ${y2}`;
+    }
     svg.push(`<path d="${d}" fill="none" stroke="${ARCH.flow}" stroke-width="2.2" stroke-linejoin="round" class="flow" marker-end="url(#farr)"/>`);
   }
 

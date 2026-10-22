@@ -219,7 +219,7 @@ async function draw() {
     const arch = $('style').value === 'arch';
     if (arch) { shownNodes = new Map(view.nodes.map((n) => [n.id, n])); shownEdges = layer || $('q').value ? null : view.edges; }   // tiles stand for single resources, so details open per resource
     if (arch) $('legend').innerHTML = '<span class="k"><b style="color:#e8710a">orange dashed arrows</b> traffic flow: from the internet and load balancers, through compute, to data stores (inferred from references in the code)</span><span class="k"><b>boxes</b> AWS Cloud / Azure, then VPC / virtual network, then subnet; green = public, blue = private (by name)</span><span class="k"><b>×N</b> several of that resource; click an icon for details</span>';
-    $('out').innerHTML = arch ? renderArchitecture(view, { animate: $('anim').checked }) : renderDiagram(shownGraph, { direction: $('dir').value, animate: $('anim').checked });
+    $('out').innerHTML = arch ? renderArchitecture(view, { animate: $('anim').checked, direction: $('dir').value }) : renderDiagram(shownGraph, { direction: $('dir').value, animate: $('anim').checked });
     const el = $('out').querySelector('svg');
     applyZoom();
   } catch (e) { $('out').textContent = 'Could not draw this view: ' + e.message; }
