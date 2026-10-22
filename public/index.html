@@ -74,7 +74,6 @@
   <form id="f">
     <textarea id="code" rows="12" placeholder='resource "aws_vpc" "main" { ... }  (paste one or more .tf files)'></textarea>
     <input type="text" id="repo" hidden placeholder="https://github.com/owner/repo or .../tree/main/infra">
-    <label id="repodirLabel" hidden style="flex:1 1 100%;color:var(--muted);font-size:14px">Folder to draw: <select id="repodir" style="max-width:100%"></select></label>
     <div id="searchbox" hidden>
       <input type="search" id="sq" placeholder="Search Terraform repos (vpc, eks, landing zone, org:hashicorp ...) or leave empty for the popular ones">
       <div class="opts" style="margin:8px 0 0">
@@ -100,6 +99,7 @@
     <label id="tokenLabel" hidden>GitHub token (private repos): <input type="password" id="token" autocomplete="off" size="20"></label>
   </div>
   <button type="button" id="tosearch" hidden>← Back to search results</button>
+  <label id="repodirLabel" hidden style="display:block;margin:6px 0;color:var(--muted);font-size:14px">Folder to draw: <select id="repodir" style="max-width:100%"></select></label>
   <div id="status"></div>
   <div id="checks" hidden></div><div id="stat" style="color:var(--muted);font-size:14px"></div>
   <div id="view" hidden>
@@ -142,7 +142,6 @@ function syncMode() {
   const m = mode();
   $('code').hidden = m !== 'paste'; $('repo').hidden = m !== 'repo'; $('zipbox').hidden = m !== 'zip'; $('searchbox').hidden = m !== 'search';
   $('tokenLabel').hidden = m !== 'repo' && m !== 'search';
-  $('repodirLabel').hidden = m !== 'repo' || !$('repodir').options.length;
   $('go').textContent = m === 'search' ? 'Search' : 'Generate';
   $('code').required = m === 'paste'; $('repo').required = m === 'repo';
 }
@@ -353,16 +352,12 @@ $('results').addEventListener('click', (e) => {
   if (e.target.id === 'more') { search(searchPage + 1); return; }
   const full = e.target.dataset?.draw;
   if (!full) return;
-  document.querySelector('input[value=repo]').checked = true;
-  repoDirFor = ''; $('repodir').replaceChildren();
+  repoDirFor = ''; $('repodir').replaceChildren(); $('repodirLabel').hidden = true;
   $('repo').value = `https://github.com/${full}`;
-  syncMode();
   $('tosearch').hidden = false;
-  window.scrollTo({ top: 0 });
-  run();
+  run().then(() => $('status').scrollIntoView({ block: 'start' }));   // the radio stays on Search GitHub and the results stay where they are
 });
 $('tosearch').addEventListener('click', () => {
-  document.querySelector('input[value=search]').checked = true; syncMode();
   $('tosearch').hidden = true;
   $('results').scrollIntoView({ block: 'start' });
 });
@@ -397,13 +392,14 @@ for (const ev of ['dragleave', 'drop']) $('zipdrop').addEventListener(ev, () => 
 $('zipdrop').addEventListener('drop', (e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) loadZip(f); });
 
 async function run() {
-  if (mode() === 'zip' && !zipFiles) { $('status').className = 'err'; $('status').textContent = 'Choose a .zip first'; return; }
-  $('go').disabled = true; $('status').className = ''; $('status').textContent = mode() === 'repo' ? 'Fetching Terraform files…' : 'Parsing…';
+  const m = mode() === 'search' ? 'repo' : mode();          // drawing from the search results is a GitHub-repo run; the radio stays on Search
+  if (m === 'zip' && !zipFiles) { $('status').className = 'err'; $('status').textContent = 'Choose a .zip first'; return; }
+  $('go').disabled = true; $('status').className = ''; $('status').textContent = m === 'repo' ? 'Fetching Terraform files…' : 'Parsing…';
   try {
     const qs = `simplify=${$('simplify').checked ? 1 : 0}&inactive=${$('inactive').checked ? 1 : 0}&provider=${$('provider').value}`;
-    const res = mode() === 'paste'
+    const res = m === 'paste'
       ? await fetch(`/api/diagram?${qs}`, { method: 'POST', body: JSON.stringify({ code: $('code').value }) })
-      : mode() === 'zip'
+      : m === 'zip'
       ? await fetch(`/api/diagram?${qs}`, { method: 'POST', body: JSON.stringify({ files: zipFiles, ignored: zipIgnored, root: $('zipdir').options.length ? $('zipdir').value : undefined }) })
       : await fetch(`/api/diagram?repo=${encodeURIComponent($('repo').value)}${$('repodir').options.length && repoDirFor === $('repo').value ? `&root=${encodeURIComponent($('repodir').value)}` : ''}&${qs}`, { headers: $('token').value ? { 'x-github-token': $('token').value } : {} });
     const data = await res.json();
@@ -413,14 +409,14 @@ async function run() {
     const nodes = data.graph.nodes.filter((n) => n.kind !== 'module' || !n.expanded);
     const mods = data.graph.nodes.filter((n) => n.kind === 'module' && n.expanded).length;
     const where = data.owner ? `${data.owner}/${data.repo}@${data.branch}${data.root ? `/${data.root}` : ''}: ${data.fileCount} files, ` : data.dirs ? `zip: ${data.fileCount} files, folder ${data.root || '(top level)'}: ` : '';
-    if (mode() === 'repo' && data.dirs && repoDirFor !== $('repo').value) {   // folders in this repository that hold Terraform
+    if (m === 'repo' && data.dirs && repoDirFor !== $('repo').value) {   // folders in this repository that hold Terraform
       const depth = (d) => (d ? d.split('/').length : 0);
       $('repodir').replaceChildren(...[...data.dirs].sort((a, b) => depth(a.dir) - depth(b.dir) || a.dir.localeCompare(b.dir)).map((d) => new Option(`${d.dir || '(top level)'}  ·  ${d.count} file${d.count === 1 ? '' : 's'}`, d.dir)));
       $('repodir').value = data.root; repoDirFor = $('repo').value;
       $('repodirLabel').hidden = data.dirs.length < 2;
     }
-    if (mode() === 'repo' && data.root !== undefined && !(data.dirs?.length > 1)) $('repodirLabel').hidden = true;
-    if (data.dirs && mode() === 'zip' && !$('zipdir').options.length) {
+    if (m === 'repo' && data.root !== undefined && !(data.dirs?.length > 1)) $('repodirLabel').hidden = true;
+    if (data.dirs && m === 'zip' && !$('zipdir').options.length) {
       const depth = (d) => (d ? d.split('/').length : 0);
       $('zipdir').replaceChildren(...[...data.dirs].sort((a, b) => depth(a.dir) - depth(b.dir) || a.dir.localeCompare(b.dir)).map((d) => new Option(`${d.dir || '(top level)'}  ·  ${d.count} file${d.count === 1 ? '' : 's'}`, d.dir)));
       $('zipdir').value = data.root;
@@ -432,7 +428,7 @@ async function run() {
     layer = ''; $('q').value = ''; $('scope').value = ''; viewStack.length = 0; syncBack(); $('panel').hidden = true; 
     buildControls();
     await draw();
-    if (mode() === 'repo') history.replaceState(null, '', '?repo=' + encodeURIComponent($('repo').value));
+    if (m === 'repo') history.replaceState(null, '', '?repo=' + encodeURIComponent($('repo').value));
   } catch (e) {
     $('status').className = 'err'; $('status').textContent = e.message;
     $('checks').hidden = true;
