@@ -58,7 +58,12 @@ const glyph = (icon) => (icon === 'lambda'
 export function renderDiagram(graph, { direction = 'LR', link = null } = {}) {
   const dagre = globalThis.dagre;
   const g = new dagre.graphlib.Graph({ compound: true });
-  g.setGraph({ rankdir: direction, nodesep: 36, ranksep: 96, edgesep: 16, marginx: 30, marginy: 30 });
+  const hasModules = graph.nodes.some(isContainer);
+  // Cards in a module sit in a padded cell, so the module's box (exactly dagre's cluster bounds) has room
+  // for its border and title and never overlaps a neighbouring module.
+  const pad = hasModules ? 20 : 0;
+  g.setGraph({ rankdir: direction, nodesep: hasModules ? 28 : 36, ranksep: hasModules ? 64 : 96, edgesep: 16, marginx: 30, marginy: 30 });
+  const cell = (cw, ch, extra) => ({ width: cw + 2 * pad, height: ch + 2 * pad, cw, ch, ...extra });
   g.setDefaultEdgeLabel(() => ({}));
 
   const byId = new Map(graph.nodes.map((n) => [n.id, n]));
@@ -66,11 +71,11 @@ export function renderDiagram(graph, { direction = 'LR', link = null } = {}) {
   for (const n of graph.nodes) {
     if (isContainer(n)) {
       g.setNode(n.id, {});
-      g.setNode(`${n.id}#hdr`, { width: W, height: 46, ref: n, hdr: true });
+      g.setNode(`${n.id}#hdr`, cell(W, 46, { ref: n, hdr: true }));
       g.setParent(`${n.id}#hdr`, n.id);
       entry.set(n.id, `${n.id}#hdr`);
     } else {
-      g.setNode(n.id, { width: W, height: H, ref: n });
+      g.setNode(n.id, cell(W, H, { ref: n }));
     }
   }
   for (const n of graph.nodes) if (n.parent && byId.has(n.parent)) g.setParent(n.id, n.parent);
@@ -90,9 +95,9 @@ export function renderDiagram(graph, { direction = 'LR', link = null } = {}) {
   // modules first, so cards and arrows draw on top
   for (const n of graph.nodes.filter(isContainer)) {
     const b = g.node(n.id);
-    const x = b.x - b.width / 2 - 16;
-    const y = b.y - b.height / 2 - 16;
-    out.push(`<rect x="${x}" y="${y}" width="${b.width + 32}" height="${b.height + 32}" rx="12" fill="${COLORS.Modules}1a" stroke="${COLORS.Modules}" stroke-width="2" stroke-dasharray="7 5"/>`);
+    const x = b.x - b.width / 2;
+    const y = b.y - b.height / 2;
+    out.push(`<rect x="${x}" y="${y}" width="${b.width}" height="${b.height}" rx="12" fill="${COLORS.Modules}1a" stroke="${COLORS.Modules}" stroke-width="2" stroke-dasharray="7 5"/>`);
   }
 
   for (const e of g.edges()) {
@@ -100,8 +105,8 @@ export function renderDiagram(graph, { direction = 'LR', link = null } = {}) {
     const a = g.node(e.v);
     const z = g.node(e.w);
     // attach to the sides that face the flow, then route with right angles
-    if (lr) { pts[0] = { x: a.x + a.width / 2, y: a.y }; pts[pts.length - 1] = { x: z.x - z.width / 2, y: z.y }; }
-    else { pts[0] = { x: a.x, y: a.y + a.height / 2 }; pts[pts.length - 1] = { x: z.x, y: z.y - z.height / 2 }; }
+    if (lr) { pts[0] = { x: a.x + a.cw / 2, y: a.y }; pts[pts.length - 1] = { x: z.x - z.cw / 2, y: z.y }; }
+    else { pts[0] = { x: a.x, y: a.y + a.ch / 2 }; pts[pts.length - 1] = { x: z.x, y: z.y - z.ch / 2 }; }
     let d = `M${pts[0].x} ${pts[0].y}`;
     for (let i = 1; i < pts.length; i++) {
       const p = pts[i - 1];
@@ -114,7 +119,7 @@ export function renderDiagram(graph, { direction = 'LR', link = null } = {}) {
 
   for (const n of graph.nodes.filter(isContainer)) {
     const b = g.node(n.id);
-    out.push(`<text x="${b.x - b.width / 2 - 6}" y="${b.y - b.height / 2 - 24}" font-size="12" font-weight="600" fill="${COLORS.Modules}">module.${esc(n.name)}${n.source ? ` (${esc(clip(n.source, 40))})` : ''}</text>`);
+    out.push(`<text x="${b.x - b.width / 2 + 12}" y="${b.y - b.height / 2 + 15}" font-size="12" font-weight="600" fill="${COLORS.Modules}">module.${esc(n.name)}${n.source ? ` (${esc(clip(n.source, 40))})` : ''}</text>`);
   }
 
   for (const id of g.nodes()) {
@@ -122,9 +127,9 @@ export function renderDiagram(graph, { direction = 'LR', link = null } = {}) {
     const n = b.ref;
     if (!n) continue;
     const color = b.hdr ? COLORS.Modules : COLORS[n.category] ?? COLORS.Other;
-    const x = b.x - b.width / 2;
-    const y = b.y - b.height / 2;
-    const h = b.height;
+    const x = b.x - b.cw / 2;
+    const y = b.y - b.ch / 2;
+    const h = b.ch;
     const title = b.hdr ? `module.${n.name}` : n.kind === 'group' ? `${n.type.replace(/^(aws_|azurerm_)/, '')}${n.count > 1 ? ` ×${n.count}` : ''}` : n.kind === 'module' ? `module.${n.name}` : n.type.replace(/^(aws_|azurerm_)/, '');
     const names = b.hdr ? (n.source ?? '') : n.kind === 'group' ? (n.names.length > 3 ? `${n.names.slice(0, 3).join(', ')} +${n.names.length - 3}` : n.names.join(', ')) : n.kind === 'module' ? (n.source ?? '') : n.name;
     const full = n.kind === 'group' ? `${title}: ${n.names.join(', ')}` : `${title} ${names}`;
@@ -132,7 +137,7 @@ export function renderDiagram(graph, { direction = 'LR', link = null } = {}) {
     const href = link && n.file ? `https://github.com/${link.owner}/${link.repo}/blob/${link.branch}/${n.file.split('/').map(encodeURIComponent).join('/')}` : null;
     const card = `<g transform="translate(${x} ${y})"${n.ghost ? ' opacity="0.5"' : ''}>
 <title>${esc(full)}</title>
-<rect width="${b.width}" height="${h}" rx="9" fill="var(--card)" stroke="${color}" stroke-width="1.6"${n.ghost ? ' stroke-dasharray="5 4"' : ''}/>
+<rect width="${b.cw}" height="${h}" rx="9" fill="var(--card)" stroke="${color}" stroke-width="1.6"${n.ghost ? ' stroke-dasharray="5 4"' : ''}/>
 <rect x="1" y="1" width="46" height="${h - 2}" rx="8" fill="${color}"/><rect x="30" y="1" width="17" height="${h - 2}" fill="${color}"/>
 <g transform="translate(11 ${h / 2 - 12})" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${glyph(icon)}</g>
 <text x="58" y="${h / 2 - 3}" font-size="13" font-weight="700" fill="var(--fg)">${esc(clip(title, 22))}</text>
