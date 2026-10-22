@@ -62,18 +62,54 @@ export function filterGraph(graph, { scope = '', collapse = false, layers = null
   return { ...graph, nodes, edges };
 }
 
+// Overview: one box per resource type per scope ("subnet x7"), so big stacks read like an architecture sketch.
+export function summarize(graph) {
+  const groupOf = new Map();
+  const groups = new Map();
+  const nodes = [];
+  for (const n of graph.nodes) {
+    if (isContainer(n) || n.kind === 'module') { groupOf.set(n.id, n.id); nodes.push(n); continue; }
+    const id = `${n.parent}::${n.type}`;
+    groupOf.set(n.id, id);
+    if (!groups.has(id)) {
+      groups.set(id, { id, kind: 'group', type: n.type, category: n.category, parent: n.parent, names: [], ghost: true, count: 0 });
+      nodes.push(groups.get(id));
+    }
+    const g = groups.get(id);
+    g.names.push(n.name);
+    g.count++;
+    g.ghost = g.ghost && Boolean(n.ghost); // dimmed only if every member is
+  }
+  const seen = new Set();
+  const edges = graph.edges
+    .map((e) => ({ from: groupOf.get(e.from), to: groupOf.get(e.to) }))
+    .filter((e) => e.from && e.to && e.from !== e.to && !seen.has(e.from + '\t' + e.to) && seen.add(e.from + '\t' + e.to));
+  return { ...graph, nodes, edges };
+}
+
+const COLORS = {
+  Networking: '#1d4ed8', Compute: '#15803d', Data: '#b45309', 'Security & IAM': '#b91c1c',
+  Modules: '#6d28d9', 'Data sources': '#0f766e', Other: '#475569',
+};
+
 const safe = (id) => 'n_' + id.replace(/[^A-Za-z0-9]/g, '_');
 const esc = (s) => String(s).replace(/"/g, '#quot;');
 
-export function toMermaid(graph, { direction = 'LR' } = {}) {
+// flow: draw arrows from the provider to its consumer (VPC -> subnet -> instance) instead of "depends on".
+export function toMermaid(graph, { direction = 'LR', flow = false, colors = false } = {}) {
   const lines = [`flowchart ${direction}`];
   const children = new Map(); // parent id -> nodes
   for (const n of graph.nodes) {
     if (!children.has(n.parent)) children.set(n.parent, []);
     children.get(n.parent).push(n);
   }
+  const catIds = new Map(); // category -> subgraph ids, for colouring
   const leaf = (n, pad) => {
-    const label = n.kind === 'module'
+    const short = (t) => t.replace(/^(aws_|azurerm_)/, '');
+    const names = n.names ? (n.names.length > 3 ? `${n.names.slice(0, 3).join(', ')} +${n.names.length - 3}` : n.names.join(', ')) : '';
+    const label = n.kind === 'group'
+      ? `${esc(short(n.type))}${n.count > 1 ? ` ×${n.count}` : ''}<br/><b>${esc(names)}</b>`
+      : n.kind === 'module'
       ? `module<br/><b>${esc(n.name)}</b>${n.source ? `<br/>${esc(n.source)}` : ''}`
       : `${esc(n.type.replace(/^(aws_|azurerm_)/, ''))}<br/><b>${esc(n.name)}</b>`;
     lines.push(`${pad}${safe(n.id)}["${label}"]`);
@@ -94,13 +130,27 @@ export function toMermaid(graph, { direction = 'LR' } = {}) {
       }
     }
     for (const [cat, items] of groups) {
-      lines.push(`${pad}subgraph ${safe('g_' + parentId + cat)}["${esc(cat)}"]`);
+      const gid = safe('g_' + parentId + cat);
+      if (!catIds.has(cat)) catIds.set(cat, []);
+      catIds.get(cat).push(gid);
+      lines.push(`${pad}subgraph ${gid}["${esc(cat)}"]`);
       items.forEach((n) => leaf(n, pad + '  '));
       lines.push(`${pad}end`);
     }
   };
   emit('', '  ', true);
-  for (const e of graph.edges) lines.push(`  ${safe(e.from)} --> ${safe(e.to)}`);
+  for (const e of graph.edges) lines.push(flow ? `  ${safe(e.to)} --> ${safe(e.from)}` : `  ${safe(e.from)} --> ${safe(e.to)}`);
+  if (colors) {
+    const cats = [...new Set(graph.nodes.map((n) => n.category))];
+    cats.forEach((cat, i) => {
+      const c = COLORS[cat] ?? COLORS.Other;
+      lines.push(`  classDef c${i} fill:${c},stroke:${c},color:#fff`);
+      const ids = graph.nodes.filter((n) => n.category === cat && !isContainer(n)).map((n) => safe(n.id));
+      if (ids.length) lines.push(`  class ${ids.join(',')} c${i}`);
+      for (const gid of catIds.get(cat) ?? []) lines.push(`  style ${gid} fill:${c}22,stroke:${c},stroke-width:2px`);
+    });
+    for (const n of graph.nodes.filter(isContainer)) lines.push(`  style ${safe(n.id)} fill:#6d28d922,stroke:#6d28d9,stroke-width:2px,stroke-dasharray:6 4`);
+  }
   const ghosts = graph.nodes.filter((n) => n.ghost).map((n) => safe(n.id));
   if (ghosts.length) {
     lines.push('  classDef ghost stroke-dasharray:4 3,opacity:0.55');

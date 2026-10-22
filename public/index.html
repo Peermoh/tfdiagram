@@ -53,6 +53,7 @@
       <input type="text" id="q" placeholder="Filter: name or type (e.g. subnet)" size="28">
       <label>Module: <select id="scope"></select></label>
       <label><input type="checkbox" id="collapse"> Collapse modules</label>
+      <label>Detail: <select id="detail"><option value="overview">Overview</option><option value="detailed">Every resource</option></select></label>
       <label>Direction: <select id="dir"><option value="LR">Left to right</option><option value="TB">Top to bottom</option></select></label>
       <label><input type="checkbox" id="fit" checked> Fit to width</label>
     </div>
@@ -65,7 +66,7 @@ import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.es
 const dark = matchMedia('(prefers-color-scheme: dark)').matches;
 mermaid.initialize({ startOnLoad: false, theme: dark ? 'dark' : 'default', securityLevel: 'strict', maxTextSize: 200000 });
 
-import { filterGraph, toMermaid } from './render.js';
+import { filterGraph, summarize, toMermaid } from './render.js';
 const $ = (id) => document.getElementById(id);
 let lastData = null;
 let layer = ''; // '' = all layers
@@ -106,7 +107,8 @@ async function draw() {
   const shown = view.nodes.filter((n) => !n.ghost && !(n.kind === 'module' && n.expanded)).length;
   $('stat').textContent = layer || $('q').value ? ` Showing ${shown} resources` + (layer ? ` in ${layer} (dashed = connected from other layers)` : '') : '';
   if (!view.nodes.length) { $('out').textContent = 'Nothing matches the filter.'; $('src').textContent = ''; return; }
-  const src = toMermaid(view, { direction: $('dir').value });
+  const overview = $('detail').value === 'overview';
+  const src = toMermaid(overview ? summarize(view) : view, { direction: $('dir').value, flow: true, colors: true });
   $('src').textContent = src;
   try {
     const { svg } = await mermaid.render('d' + Date.now(), src);
@@ -118,7 +120,7 @@ async function draw() {
     }
   } catch (e) { $('out').textContent = 'Could not draw this view: ' + e.message; }
 }
-for (const id of ['scope', 'collapse', 'dir', 'fit']) $(id).addEventListener('change', draw);
+for (const id of ['scope', 'collapse', 'dir', 'fit', 'detail']) $(id).addEventListener('change', draw);
 $('q').addEventListener('input', () => { clearTimeout($('q')._t); $('q')._t = setTimeout(draw, 250); });
 
 async function run() {

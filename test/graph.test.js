@@ -134,3 +134,41 @@ test('azure categories', async () => {
   const g = buildGraph([{ path: 'a.tf', content: 'resource "azurerm_subnet" "s" {}\nresource "azurerm_subnet_route_table_association" "a" { subnet_id = azurerm_subnet.s.id }' }], { provider: 'azure' });
   assert.deepEqual(g.nodes.map((n) => n.id), ['azurerm_subnet.s']);
 });
+
+test('overview groups by type, flow reverses arrows, colours categories', async () => {
+  const { summarize } = await import('../public/render.js');
+  const g = buildGraph([{ path: 'a.tf', content: `
+    resource "aws_vpc" "main" {}
+    resource "aws_subnet" "a" { vpc_id = aws_vpc.main.id }
+    resource "aws_subnet" "b" { vpc_id = aws_vpc.main.id }
+    resource "aws_instance" "web" { subnet_id = aws_subnet.a.id }` }]);
+  const o = summarize(g);
+  assert.equal(o.nodes.length, 3);
+  const sub = o.nodes.find((n) => n.type === 'aws_subnet');
+  assert.equal(sub.count, 2);
+  assert.equal(o.edges.length, 2); // two subnet->vpc edges collapse into one
+  const m = toMermaid(o, { flow: true, colors: true });
+  assert.match(m, /subnet ×2<br\/><b>a, b/);
+  assert.match(m, /n_::aws_vpc|n___aws_vpc --> n___aws_subnet/);
+  assert.match(m, /classDef c\d fill:#1d4ed8/);
+  assert.match(m, /style n_g_+Networking fill:#1d4ed822/);
+});
+
+test('follows local.* indirection to real references', () => {
+  const g = buildGraph([{ path: 'a.tf', content: `
+    locals {
+      role_arn = var.create ? aws_iam_role.fn[0].arn : ""
+      dest     = {
+        bucket = aws_s3_bucket.logs.arn
+      }
+      chained  = local.role_arn
+    }
+    resource "aws_iam_role" "fn" {}
+    resource "aws_s3_bucket" "logs" {}
+    resource "aws_flow_log" "f" {
+      iam_role_arn    = local.chained
+      log_destination = local.dest.bucket
+    }` }]);
+  assert.ok(has(g, 'aws_flow_log.f', 'aws_iam_role.fn'));
+  assert.ok(has(g, 'aws_flow_log.f', 'aws_s3_bucket.logs'));
+});
