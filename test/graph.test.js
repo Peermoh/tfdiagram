@@ -668,3 +668,24 @@ test('conditionals: simple boolean logic is evaluated, anything else stays compu
   assert.ok(isComputed(simplify('var.unknown ? 1 : 2')));            // unknown condition: not a guess
   assert.ok(isComputed('merge(a, b)') && isComputed('route.value.cidr') && !isComputed('"plain"'));
 });
+
+test('settings: boolean expressions are evaluated, hidden helper resources are not named', () => {
+  const g = buildGraph([{ path: 's.tf', content: `
+    variable "a" { default = false }
+    variable "b" { default = false }
+    resource "aws_vpc" "this" {}
+    resource "aws_vpc_ipv4_cidr_block_association" "this" { vpc_id = aws_vpc.this.id }
+    resource "aws_subnet" "db" {
+      vpc_id                          = try(aws_vpc_ipv4_cidr_block_association.this[0].vpc_id, aws_vpc.this[0].id, "")
+      enable_resource_name_dns_a_record_on_launch = !var.a && var.b
+      ipv6_native                     = var.a && var.b
+      availability_zone               = data.aws_availability_zones.available.names[0]
+      cidr_block                      = element(concat(var.cidrs, [""]), count.index)
+    }` }]);
+  const rows = Object.fromEntries(g.nodes.find((n) => n.id === 'aws_subnet.db').details.rows.map((r) => [r.k, r.value]));
+  assert.equal(rows.vpc_id, 'VPC this');                       // not "VPC ipv4 cidr block association this, VPC this"
+  assert.equal(rows.enable_resource_name_dns_a_record_on_launch, 'false');
+  assert.equal(rows.ipv6_native, 'false');
+  assert.equal(rows.availability_zone, 'Availability zones available');
+  assert.equal(rows.cidr_block, '(computed)');
+});
