@@ -84,6 +84,7 @@ import { hasOfficialIcons, renderDiagram, setOfficialIcons } from './diagram.js'
 const $ = (id) => document.getElementById(id);
 let lastData = null;
 let shownNodes = new Map(); // id -> node in the diagram currently drawn
+let shownEdges = [];
 // Official AWS / Azure icons are optional: present only after scripts/import-icons.mjs has been run.
 fetch('icons/manifest.json').then((r) => (r.ok ? r.json() : {})).catch(() => ({})).then((m) => {
   setOfficialIcons(m);
@@ -132,6 +133,7 @@ async function draw() {
   const shownGraph = overview ? summarize(view) : view;
   $('src').textContent = toMermaid(shownGraph, { direction: $('dir').value, flow: true, colors: true });
   shownNodes = new Map(shownGraph.nodes.map((n) => [n.id, n]));
+  shownEdges = layer || $('q').value ? null : shownGraph.edges; // null = filtered view, so a missing arrow proves nothing
   drawLegend(shownGraph);
   try {
     $('out').innerHTML = renderDiagram(shownGraph, { direction: $('dir').value });
@@ -186,10 +188,12 @@ function showDetails(id) {
   if (d?.kind === 'settings') {
     body = `<table><tr><th>Setting</th><th>Value</th></tr>${d.rows.map((r) => `<tr><td>${H(r.key)}</td><td><code>${H(r.value)}</code></td></tr>`).join('')}</table>`;
   }
+  const alone = shownEdges && !shownEdges.some((e) => e.from === id || e.to === id)
+    ? '<p class="tag">No arrows: no other resource in this Terraform refers to this one, and it refers to none. It may be linked outside this code (another repo, the console) or through something that can\'t be followed statically.</p>' : '';
   const ranges = n.cidrs?.length ? `<p>IP range${n.cidrs.length > 1 ? 's' : ''}: ${n.cidrs.map((c) => `<code>${H(c)}</code>`).join(', ')}</p>` : '';
   const type = n.kind === 'module' ? 'Module' : friendlyType(n.type);
   $('panel').innerHTML = `<button id="close" type="button">✕</button><h2>${H(type)} · ${H(n.label ?? n.name)}</h2>
-    <div class="meta">${H(n.kind === 'module' ? `module.${n.name}` : `${n.type}.${n.name}`)} · ${sourceLink(n)}</div>${ranges}${body}`;
+    <div class="meta">${H(n.kind === 'module' ? `module.${n.name}` : `${n.type}.${n.name}`)} · ${sourceLink(n)}</div>${ranges}${body}${alone}`;
   $('panel').hidden = false;
   $('close').addEventListener('click', () => { $('panel').hidden = true; });
 }

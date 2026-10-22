@@ -569,3 +569,30 @@ test('details: settings for every resource, S3 / LB / EBS / storage sub-resource
   assert.equal(a('azurerm_lb.lb').summary, 'Standard · 1 rules');
   assert.ok(!az.nodes.some((n) => n.type === 'azurerm_lb_rule' || n.type === 'azurerm_storage_container'));
 });
+
+test('hidden association resources still link the things they connect', () => {
+  const g = buildGraph([{ path: 'n.tf', content: `
+    resource "aws_vpc" "main" {}
+    resource "aws_vpc_dhcp_options" "opts" {}
+    resource "aws_vpc_dhcp_options_association" "a" {
+      vpc_id          = aws_vpc.main.id
+      dhcp_options_id = aws_vpc_dhcp_options.opts.id
+    }
+    resource "aws_subnet" "s" { vpc_id = aws_vpc.main.id }
+    resource "aws_route_table" "rt" { vpc_id = aws_vpc.main.id }
+    resource "aws_route_table_association" "assoc" {
+      route_table_id = aws_route_table.rt.id
+      subnet_id      = aws_subnet.s.id
+    }
+    resource "aws_lambda_function" "fn" {}
+    resource "aws_s3_bucket" "b" {}
+    resource "aws_lambda_permission" "allow" {
+      function_name = aws_lambda_function.fn.function_name
+      source_arn    = aws_s3_bucket.b.arn
+    }` }]);
+  const has2 = (from, to) => g.edges.some((e) => e.from === from && e.to === to);
+  assert.ok(!g.nodes.some((n) => /association|attachment/.test(n.type)), 'plumbing is still hidden');
+  assert.ok(has2('aws_vpc.main', 'aws_vpc_dhcp_options.opts'));       // options flow into the VPC
+  assert.ok(has2('aws_subnet.s', 'aws_route_table.rt'));              // route table flows into the subnet
+  assert.ok(has2('aws_lambda_function.fn', 'aws_s3_bucket.b'));       // first named is the consumer when there is no hint
+});
