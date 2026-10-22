@@ -62,6 +62,31 @@ export function filterGraph(graph, { scope = '', collapse = false, layers = null
   return { ...graph, nodes, edges };
 }
 
+// Drops an edge when another path already connects the same two nodes (vpc -> subnet -> route makes
+// vpc -> route redundant). Keeps the diagram to the arrows that carry information.
+export function reduceEdges(edges) {
+  const out = new Map();
+  for (const e of edges) { if (!out.has(e.from)) out.set(e.from, new Set()); out.get(e.from).add(e.to); }
+  const reaches = (start, target, skipTo) => {
+    const seen = new Set([start]);
+    const stack = [...(out.get(start) ?? [])].filter((n) => n !== skipTo);
+    while (stack.length) {
+      const n = stack.pop();
+      if (n === target) return true;
+      if (seen.has(n)) continue;
+      seen.add(n);
+      stack.push(...(out.get(n) ?? []));
+    }
+    return false;
+  };
+  const kept = [];
+  for (const e of edges) {
+    if (reaches(e.from, e.to, e.to)) out.get(e.from).delete(e.to);
+    else kept.push(e);
+  }
+  return kept;
+}
+
 // Overview: one box per resource type per scope ("subnet x7"), so big stacks read like an architecture sketch.
 export function summarize(graph) {
   const groupOf = new Map();
@@ -72,7 +97,7 @@ export function summarize(graph) {
     const id = `${n.parent}::${n.type}`;
     groupOf.set(n.id, id);
     if (!groups.has(id)) {
-      groups.set(id, { id, kind: 'group', type: n.type, category: n.category, parent: n.parent, names: [], ghost: true, count: 0 });
+      groups.set(id, { id, kind: 'group', type: n.type, category: n.category, parent: n.parent, file: n.file, names: [], ghost: true, count: 0 });
       nodes.push(groups.get(id));
     }
     const g = groups.get(id);
@@ -87,7 +112,7 @@ export function summarize(graph) {
   return { ...graph, nodes, edges };
 }
 
-const COLORS = {
+export const COLORS = {
   Networking: '#1d4ed8', Compute: '#15803d', Data: '#b45309', 'Security & IAM': '#b91c1c',
   Modules: '#6d28d9', 'Data sources': '#0f766e', Other: '#475569',
 };

@@ -172,3 +172,19 @@ test('follows local.* indirection to real references', () => {
   assert.ok(has(g, 'aws_flow_log.f', 'aws_iam_role.fn'));
   assert.ok(has(g, 'aws_flow_log.f', 'aws_s3_bucket.logs'));
 });
+
+test('reduceEdges drops arrows already implied by a longer path', async () => {
+  const { reduceEdges } = await import('../public/render.js');
+  const e = (from, to) => ({ from, to });
+  // route depends on subnet and on vpc; subnet depends on vpc
+  const kept = reduceEdges([e('route', 'subnet'), e('route', 'vpc'), e('subnet', 'vpc')]);
+  assert.deepEqual(kept.map((x) => `${x.from}>${x.to}`).sort(), ['route>subnet', 'subnet>vpc']);
+  // a cycle must not lose both directions
+  assert.equal(reduceEdges([e('a', 'b'), e('b', 'a')]).length, 2);
+});
+
+test('icons: aws and azure types map to sensible glyphs', async () => {
+  const { iconFor } = await import('../public/diagram.js');
+  const want = { aws_subnet: 'grid', aws_vpc: 'cloud', aws_instance: 'server', aws_lambda_function: 'lambda', aws_s3_bucket: 'bucket', aws_db_instance: 'database', aws_lb: 'balancer', aws_security_group: 'shield', aws_iam_role: 'lock', azurerm_virtual_network: 'cloud', azurerm_linux_virtual_machine: 'server', azurerm_storage_account: 'bucket', azurerm_key_vault: 'lock', azurerm_network_security_group: 'shield' };
+  for (const [t, i] of Object.entries(want)) assert.equal(iconFor(t), i, t);
+});

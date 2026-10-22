@@ -16,6 +16,7 @@ Private repos or rate limits: paste a GitHub token in the page (sent per request
 - `lib/graph.js` finds references between blocks (`aws_subnet.x.id`) as edges, groups nodes
   (Networking, Compute, Data, Security & IAM), hides plumbing by default, and emits Mermaid.
 - `lib/graph.js` also follows `local.*` values, so references hidden behind locals still become arrows.
+- `public/diagram.js` draws the SVG (icons, legend colours, right-angle arrows) using dagre for layout (`public/vendor/dagre.min.js`, MIT, (c) Chris Pettitt).
 - `public/render.js` filters the graph (layer, search, module, collapse) and emits Mermaid; `public/index.html` draws it in the browser.
 
 ## Input

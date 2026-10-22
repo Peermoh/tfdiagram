@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>TFDiagram</title>
 <style>
-  :root { --bg:#fff; --fg:#1a1a1a; --muted:#666; --line:#d8d8d8; --accent:#c2410c; }
-  @media (prefers-color-scheme: dark) { :root { --bg:#111; --fg:#eee; --muted:#999; --line:#333; --accent:#fb923c; } }
+  :root { --bg:#fff; --fg:#1a1a1a; --muted:#666; --line:#d8d8d8; --accent:#c2410c; --card:#fff; --edge:#64748b; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#111; --fg:#eee; --muted:#999; --line:#333; --accent:#fb923c; --card:#1b1b1b; --edge:#94a3b8; } }
   * { box-sizing: border-box; }
   body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.5 system-ui, sans-serif; }
   main { max-width: 1100px; margin: 0 auto; padding: 32px 16px; }
@@ -23,6 +23,10 @@
   .tabs { display:flex; gap:6px; flex-wrap:wrap; margin:8px 0; }
   .tabs button { background:transparent; color:var(--fg); border:1px solid var(--line); padding:6px 12px; font-size:14px; }
   .tabs button.on { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .legend { display:flex; flex-wrap:wrap; gap:8px 18px; margin:10px 0; font-size:13px; color:var(--muted); }
+  .legend span.k { display:inline-flex; align-items:center; gap:6px; }
+  .legend i { width:12px; height:12px; border-radius:3px; display:inline-block; }
+  .legend b { color:var(--fg); font-weight:600; }
   details { margin-top:16px; } pre { overflow:auto; background:rgba(128,128,128,.1); padding:12px; border-radius:6px; }
 </style>
 </head>
@@ -55,18 +59,18 @@
       <label><input type="checkbox" id="collapse"> Collapse modules</label>
       <label>Detail: <select id="detail"><option value="overview">Overview</option><option value="detailed">Every resource</option></select></label>
       <label>Direction: <select id="dir"><option value="LR">Left to right</option><option value="TB">Top to bottom</option></select></label>
-      <label><input type="checkbox" id="fit" checked> Fit to width</label>
+      <label><input type="checkbox" id="fit"> Fit to width</label>
     </div>
   </div>
+  <div id="legend" class="legend"></div>
   <div id="out"></div>
   <details><summary>Mermaid source</summary><pre id="src"></pre></details>
 </main>
+<script src="vendor/dagre.min.js"></script>
 <script type="module">
-import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs';
-const dark = matchMedia('(prefers-color-scheme: dark)').matches;
-mermaid.initialize({ startOnLoad: false, theme: dark ? 'dark' : 'default', securityLevel: 'strict', maxTextSize: 200000 });
 
-import { filterGraph, summarize, toMermaid } from './render.js';
+import { COLORS, filterGraph, summarize, toMermaid } from './render.js';
+import { renderDiagram } from './diagram.js';
 const $ = (id) => document.getElementById(id);
 let lastData = null;
 let layer = ''; // '' = all layers
@@ -108,17 +112,34 @@ async function draw() {
   $('stat').textContent = layer || $('q').value ? ` Showing ${shown} resources` + (layer ? ` in ${layer} (dashed = connected from other layers)` : '') : '';
   if (!view.nodes.length) { $('out').textContent = 'Nothing matches the filter.'; $('src').textContent = ''; return; }
   const overview = $('detail').value === 'overview';
-  const src = toMermaid(overview ? summarize(view) : view, { direction: $('dir').value, flow: true, colors: true });
-  $('src').textContent = src;
+  const shownGraph = overview ? summarize(view) : view;
+  $('src').textContent = toMermaid(shownGraph, { direction: $('dir').value, flow: true, colors: true });
+  drawLegend(shownGraph);
   try {
-    const { svg } = await mermaid.render('d' + Date.now(), src);
-    $('out').innerHTML = svg;
+    const { owner, repo, branch } = lastData;
+    $('out').innerHTML = renderDiagram(shownGraph, { direction: $('dir').value, link: owner ? { owner, repo, branch } : null });
     const el = $('out').querySelector('svg');
-    if (!$('fit').checked && el) {
-      const w = el.viewBox.baseVal.width;
-      el.style.maxWidth = 'none'; el.setAttribute('width', w);
-    }
+    if ($('fit').checked && el) { el.removeAttribute('height'); el.style.width = '100%'; el.style.height = 'auto'; }
   } catch (e) { $('out').textContent = 'Could not draw this view: ' + e.message; }
+}
+
+const MEANING = {
+  Networking: 'VPCs, subnets, gateways, routes, load balancers, DNS',
+  Compute: 'VMs, containers, functions, autoscaling',
+  Data: 'databases, storage, queues, caches',
+  'Security & IAM': 'security groups, roles, keys, policies',
+  Modules: 'Terraform modules',
+  'Data sources': 'existing things Terraform only reads',
+  Other: 'everything not matched above',
+};
+function drawLegend(g) {
+  const cats = [...new Set(g.nodes.filter((n) => !(n.kind === 'module' && n.expanded)).map((n) => n.category))];
+  const key = (c) => `<span class="k"><i style="background:${COLORS[c] ?? COLORS.Other}"></i><b>${c}</b> ${MEANING[c] ?? ''}</span>`;
+  $('legend').innerHTML = cats.map(key).join('') +
+    '<span class="k"><b>→</b> flows from a resource to what uses it</span>' +
+    '<span class="k"><b>×N</b> N resources of that type grouped</span>' +
+    '<span class="k"><b>dashed card</b> connected from another layer</span>' +
+    '<span class="k"><b>dashed purple box</b> an expanded module</span>';
 }
 for (const id of ['scope', 'collapse', 'dir', 'fit', 'detail']) $(id).addEventListener('change', draw);
 $('q').addEventListener('input', () => { clearTimeout($('q')._t); $('q')._t = setTimeout(draw, 250); });
