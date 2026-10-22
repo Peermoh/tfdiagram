@@ -268,3 +268,196 @@ ${badge}
   out.push('</svg>');
   return out.join('\n');
 }
+
+// ---- Architecture view: cloud -> VPC -> subnet boxes with big icons and animated traffic arrows ----
+const NET = /(^|_)(vpc|virtual_network)$/;
+const SUBNET = /(^|_)subnet$/;
+const HIDDEN = /security_group|network_acl|route_table|dhcp|(^aws_route$)|_route$|_association|flow_log|iam_|_policy|role_assignment|user_assigned_identity|subnet_group|kms_|key_vault_|lb_listener|lb_target_group|lb_backend|lb_probe|lb_rule|lb_nat|alb_|lb_cookie|vpc_endpoint_|network_interface|(^aws_eip)|_attachment$|_ssm_|cloudwatch_log|monitor_|diagnostic/;
+const LB_PLUMBING = /lb_listener|lb_target_group|alb_|lb_backend|lb_probe|lb_rule|lb_nat|_attachment$/;
+const EDGE_TYPES = /(^aws_(lb|alb|elb)$|cloudfront|api_gateway|apigateway|front_door|application_gateway|route53_zone|cdn_endpoint|(^azurerm_lb$)|lb$)/;
+const DATA_TYPES = /db_instance|rds_|dynamodb|elasticache|redis|s3_bucket|efs_|ebs_|mssql|sql_|cosmos|storage_account|postgresql|mysql|docdb|redshift|opensearch|elasticsearch|kinesis|sqs_|sns_|servicebus|eventhub|managed_disk|storage_/;
+const klass = (t) => (EDGE_TYPES.test(t) ? 0 : DATA_TYPES.test(t) ? 2 : 1);
+const ARCH = { cloud: '#232f3e', vpc: '#8c4fff', public: '#7aa116', private: '#147eba', plain: '#6b7a8c', azure: '#0078d4', flow: '#e8710a' };
+const nice = (n) => (n.label && !/\.tf:\d+$/.test(n.label) ? n.label : n.name);
+const TW = 132;
+const TH = 112;
+
+export function renderArchitecture(graph, { animate = true } = {}) {
+  const dagre = globalThis.dagre;
+  const azure = graph.nodes.some((n) => n.type?.startsWith('azurerm_'));
+  const tiles = graph.nodes.filter((n) => !(n.kind === 'module' && n.expanded));
+  const byId = new Map(tiles.map((n) => [n.id, n]));
+  const out = new Map();                                    // consumer -> providers it references
+  for (const e of graph.edges) { if (!out.has(e.from)) out.set(e.from, []); out.get(e.from).push(e.to); }
+  const nets = tiles.filter((n) => n.kind === 'resource' && NET.test(n.type.replace(/^(aws_|azurerm_)/, '')));
+  const subs = tiles.filter((n) => n.kind === 'resource' && SUBNET.test(n.type.replace(/^(aws_|azurerm_)/, '')));
+  const netIds = new Set(nets.map((n) => n.id));
+  const subIds = new Set(subs.map((n) => n.id));
+  const hidden = (n) => n.kind !== 'module' && (HIDDEN.test(n.type) || netIds.has(n.id) || subIds.has(n.id));
+
+  // where a resource sits: follow its references (through hidden plumbing) to a subnet, else a VPC
+  const home = (id, seen = new Set()) => {
+    if (seen.has(id)) return null;
+    seen.add(id);
+    let vpc = null;
+    for (const to of out.get(id) ?? []) {
+      if (subIds.has(to)) return to;
+      if (netIds.has(to)) vpc = vpc ?? to;
+      else if (byId.has(to) && hidden(byId.get(to))) { const h = home(to, seen); if (h && subIds.has(h)) return h; vpc = vpc ?? h; }
+    }
+    return vpc;
+  };
+  const subHome = new Map(subs.map((s) => [s.id, [...(out.get(s.id) ?? [])].find((t) => netIds.has(t)) ?? null]));
+
+  const g = new dagre.graphlib.Graph({ compound: true });
+  g.setGraph({ rankdir: 'LR', nodesep: 46, ranksep: 70, edgesep: 16, marginx: 24, marginy: 24 });
+  g.setDefaultEdgeLabel(() => ({}));
+  const cloud = { label: azure ? 'Azure' : 'AWS Cloud', color: azure ? ARCH.azure : ARCH.cloud, kind: 'cloud' };
+  g.setNode('#cloud', { cloud });
+  for (const v of nets) { g.setNode(v.id, { box: { label: nice(v), sub: cidrText(v.cidrs), color: ARCH.vpc, kind: 'vpc', n: v } }); g.setParent(v.id, '#cloud'); }
+  for (const s of subs) {
+    const t = `${s.label ?? ''} ${s.name}`.toLowerCase();
+    const kind = /public/.test(t) ? 'public' : /private|database|intra|internal/.test(t) ? 'private' : 'plain';
+    g.setNode(s.id, { box: { label: nice(s), sub: cidrText(s.cidrs), color: ARCH[kind], kind, n: s } });
+    const v = subHome.get(s.id);
+    g.setParent(s.id, v && g.hasNode(v) ? v : '#cloud');
+  }
+
+  // visible resources, one tile per type per box (x2 when several)
+  const tileOf = new Map();                                   // node id -> tile id
+  const tileNodes = new Map();
+  for (const n of tiles) {
+    if (hidden(n)) continue;
+    const box = home(n.id);
+    const key = `${box ?? '#cloud'}|${n.type}|${n.kind}`;
+    if (!tileNodes.has(key)) tileNodes.set(key, { id: key, box: box ?? '#cloud', type: n.type, kind: n.kind, names: [], total: 0, ref: n });
+    const t = tileNodes.get(key);
+    t.names.push(n.label ?? n.name);
+    t.total += n.kind === 'group' ? n.count : n.instances ?? 1;
+    tileOf.set(n.id, key);
+  }
+  const hiddenCount = tiles.filter((n) => hidden(n) && !netIds.has(n.id) && !subIds.has(n.id)).length;
+  for (const t of tileNodes.values()) {
+    g.setNode(t.id, { width: TW, height: TH, tile: t });
+    g.setParent(t.id, g.hasNode(t.box) ? t.box : '#cloud');
+  }
+
+  for (const id of g.nodes()) {                                // a box with nothing in it still needs a size
+    const d = g.node(id);
+    if (d.box && !g.children(id).length) { d.width = 220; d.height = 40; }
+  }
+
+  // traffic: entry points -> compute -> data. Chains through load-balancer plumbing count as direct links.
+  const flows = new Map();
+  const add = (a, b, ordering) => {
+    const ta = tileOf.get(a); const tb = tileOf.get(b);
+    if (!ta || !tb || ta === tb) return;
+    const [ka, kb] = [klass(tileNodes.get(ta).type), klass(tileNodes.get(tb).type)];
+    // provider -> consumer unless the classes say otherwise (clients reach data, never the other way)
+    const [from, to] = ka === kb ? [ta, tb] : ka < kb ? [ta, tb] : [tb, ta];
+    const k = `${from}>${to}`;
+    if (!flows.has(k) && !flows.has(`${to}>${from}`)) flows.set(k, { from, to, ordering });
+    else if (flows.get(k) && !ordering) flows.get(k).ordering = false;
+  };
+  const plumb = new Map();                                    // lb plumbing node -> visible neighbours
+  for (const e of graph.edges) {
+    const a = byId.get(e.from); const b = byId.get(e.to);
+    if (!a || !b) continue;
+    if (e.ordering) continue;
+    const pa = a.kind !== 'module' && LB_PLUMBING.test(a.type); const pb = b.kind !== 'module' && LB_PLUMBING.test(b.type);
+    if (pa || pb) {
+      const h = pa ? a.id : b.id; const v = pa ? b : a;
+      if (!plumb.has(h)) plumb.set(h, new Set());
+      if (!hidden(v) || LB_PLUMBING.test(v.type)) { if (!LB_PLUMBING.test(v.type)) plumb.get(h).add(v.id); }
+      continue;
+    }
+    if (hidden(a) || hidden(b)) continue;
+    add(b.id, a.id, false);                                   // provider -> consumer
+  }
+  // plumbing nodes that touch one another (listener -> target group -> attachment) form a chain: join their ends
+  const comp = new Map();
+  const find = (x) => (comp.get(x) === x || !comp.has(x) ? x : find(comp.get(x)));
+  for (const h of plumb.keys()) comp.set(h, h);
+  for (const e of graph.edges) {
+    if (plumb.has(e.from) && plumb.has(e.to)) comp.set(find(e.from), find(e.to));
+  }
+  const groups = new Map();
+  for (const [h, set] of plumb) { const r = find(h); groups.set(r, [...(groups.get(r) ?? []), ...set]); }
+  for (const members of groups.values()) {
+    const u = [...new Set(members)];
+    for (const a of u) for (const b of u) if (a < b && klass(byId.get(a).type) !== klass(byId.get(b).type)) add(a, b, false);
+  }
+
+  // an "Internet" tile feeding whatever faces the outside
+  const entries = [...tileNodes.values()].filter((t) => klass(t.type) === 0);
+  const igw = [...tileNodes.values()].filter((t) => /internet_gateway/.test(t.type));
+  const front = entries.length ? entries : igw;
+  if (front.length) {
+    g.setNode('#net', { width: 96, height: 96, net: true });
+    for (const t of front) flows.set(`#net>${t.id}`, { from: '#net', to: t.id });
+  }
+  for (const f of flows.values()) if (g.hasNode(f.from) && g.hasNode(f.to)) g.setEdge(f.from, f.to, { ordering: f.ordering });
+  dagre.layout(g);
+
+  const depth = (id) => { let d = 0; for (let p = g.parent(id); p; p = g.parent(p)) d++; return d; };
+  const boxes = g.nodes().filter((id) => g.children(id).length || g.node(id)?.box || g.node(id)?.cloud);
+  const grow = (id) => 10 + 12 * Math.max(0, ...g.children(id).filter((c) => g.children(c).length).map((c) => 1 + (g.children(c).some((d) => g.children(d).length) ? 1 : 0)));
+  const rect = (id) => { const b = g.node(id); const gr = grow(id);  return { x: b.x - b.width / 2 - gr, y: b.y - b.height / 2 - gr - 24, w: b.width + 2 * gr, h: b.height + 2 * gr + 24 }; };
+  let minX = 0; let minY = 0; let maxX = g.graph().width; let maxY = g.graph().height;
+  for (const id of boxes) { const r = rect(id); minX = Math.min(minX, r.x - 12); minY = Math.min(minY, r.y - 12); maxX = Math.max(maxX, r.x + r.w + 12); maxY = Math.max(maxY, r.y + r.h + 12); }
+  const w = Math.ceil(maxX - minX); const h = Math.ceil(maxY - minY) + 22;
+  const svg = [];
+  svg.push(`<svg xmlns="http://www.w3.org/2000/svg" class="arch${animate ? '' : ' still'}" viewBox="${minX} ${minY} ${w} ${h}" width="${w}" height="${h}" font-family="system-ui, sans-serif">`);
+  svg.push(`<style>.flow{stroke-dasharray:7 6;animation:tfflow 0.9s linear infinite}.still .flow{animation:none}@keyframes tfflow{to{stroke-dashoffset:-13}}@media (prefers-reduced-motion:reduce){.flow{animation:none}}</style>`);
+  svg.push(`<defs><marker id="farr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="${ARCH.flow}"/></marker></defs>`);
+  const hint = { cloud: P.cloud, vpc: P.cloud, public: P.globe, private: P.shield, plain: P.grid };
+  for (const id of boxes.sort((a, b) => depth(a) - depth(b))) {
+    const d = g.node(id);
+    const info = d.cloud ?? d.box;
+    if (!info) continue;
+    const r = rect(id);
+    const title = info.kind === 'cloud' ? info.label : info.kind === 'vpc' ? `VPC · ${info.label}` : `${info.kind === 'public' ? 'Public subnet' : info.kind === 'private' ? 'Private subnet' : 'Subnet'} · ${info.label}${info.n?.instances > 1 ? ` ×${info.n.instances}` : ''}`;
+    svg.push(`<g><title>${esc(title)}${info.sub ? ' ' + esc(info.sub) : ''}</title><rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" rx="6" fill="${info.color}${info.kind === 'cloud' ? '08' : '1c'}" stroke="${info.color}" stroke-width="${info.kind === 'cloud' ? 1.6 : 1.4}"/>
+<rect x="${r.x}" y="${r.y}" width="26" height="26" rx="${info.kind === 'cloud' ? 4 : 3}" fill="${info.color}"/><g transform="translate(${r.x + 3} ${r.y + 3})" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="${hint[info.kind] ?? P.cloud}"/></g>
+<text x="${r.x + 34}" y="${r.y + 17}" font-size="12.5" font-weight="600" fill="${info.color}">${esc(clip(title, Math.max(14, Math.floor(r.w / 7.2))))}${info.sub ? `<tspan font-weight="400" font-family="ui-monospace, monospace" font-size="11" dx="8" fill="var(--muted)">${esc(info.sub)}</tspan>` : ''}</text></g>`);
+  }
+
+  for (const e of g.edges()) {
+    const pts = g.edge(e).points.map((p) => ({ ...p }));
+    const a = g.node(e.v); const z = g.node(e.w);
+    // leave and enter at the middle of the icons, with one bend halfway
+    const mid = (n) => (n.net ? n.y - 8 : n.y - TH / 2 + 32);
+    const x1 = a.x + 34; const y1 = mid(a);
+    const x2 = z.x - 38; const y2 = mid(z);
+    const m = (x1 + x2) / 2;
+    const d = y1 === y2 ? `M${x1} ${y1} L${x2} ${y2}` : `M${x1} ${y1} L${m} ${y1} L${m} ${y2} L${x2} ${y2}`;
+    svg.push(`<path d="${d}" fill="none" stroke="${ARCH.flow}" stroke-width="2.2" stroke-linejoin="round" class="flow" marker-end="url(#farr)"/>`);
+  }
+
+  for (const id of g.nodes()) {
+    const d = g.node(id);
+    if (d.net) {
+      svg.push(`<g transform="translate(${d.x - 48} ${d.y - 48})"><circle cx="48" cy="40" r="30" fill="${ARCH.cloud}"/><g transform="translate(24 16) scale(2)" fill="none" stroke="#fff" stroke-width="1.5" stroke-linecap="round"><path d="${P.globe}"/></g><text x="48" y="92" text-anchor="middle" font-size="13" font-weight="700" fill="var(--fg)">Internet</text></g>`);
+      continue;
+    }
+    const t = d.tile;
+    if (!t) continue;
+    const n = t.ref;
+    const kind = friendlyType(t.type);
+    const color = COLORS[n.category] ?? COLORS.Other;
+    const official = n.kind !== 'module' && OFFICIAL[t.type];
+    const icon = official
+      ? `<image href="icons/${esc(official)}" x="${TW / 2 - 28}" y="4" width="56" height="56" preserveAspectRatio="xMidYMid meet"/>`
+      : `<rect x="${TW / 2 - 28}" y="4" width="56" height="56" rx="10" fill="${color}"/><g transform="translate(${TW / 2 - 18} 14) scale(1.5)" fill="none" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${glyph(n.kind === 'module' ? 'cube' : iconFor(t.type))}</g>`;
+    const label = t.total > 1 ? plural(kind) : kind;
+    const names = t.names.length > 2 ? `${t.names.slice(0, 2).join(', ')} +${t.names.length - 2}` : t.names.join(', ');
+    svg.push(`<g transform="translate(${d.x - TW / 2} ${d.y - TH / 2})" data-node="${esc(n.id)}" style="cursor:pointer"><title>${esc(`${label}: ${t.names.join(', ')}${t.total > 1 ? ` (×${t.total})` : ''}. Click for details.`)}</title>
+${icon}
+${t.total > 1 ? `<g><rect x="${TW / 2 + 12}" y="0" width="30" height="18" rx="9" fill="${ARCH.cloud}" stroke="var(--card)" stroke-width="2"/><text x="${TW / 2 + 27}" y="13" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">×${t.total}</text></g>` : ''}
+<text x="${TW / 2}" y="78" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--fg)">${esc(clip(label, 20))}</text>
+<text x="${TW / 2}" y="94" text-anchor="middle" font-size="11" fill="var(--muted)">${esc(clip(names, 22))}</text></g>`);
+  }
+  if (hiddenCount) svg.push(`<text x="${minX + 12}" y="${maxY + 14}" font-size="11" fill="var(--muted)">${hiddenCount} supporting resources (security groups, routes, IAM, listeners…) are folded away. Use the Cards view to see them.</text>`);
+  svg.push('</svg>');
+  return svg.join('\n');
+}

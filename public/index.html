@@ -112,6 +112,8 @@
       <label><input type="checkbox" id="collapse"> Collapse modules</label>
       <label>Detail: <select id="detail"><option value="overview">Overview</option><option value="detailed">Every resource</option></select></label>
       <label>Direction: <select id="dir"><option value="LR">Left to right</option><option value="TB">Top to bottom</option></select></label>
+      <label>Style: <select id="style"><option value="cards">Cards</option><option value="arch">Architecture</option></select></label>
+      <label id="animLabel" hidden><input type="checkbox" id="anim" checked> Animate traffic</label>
       <label><input type="checkbox" id="fit"> Fit to width</label>
     </div>
   </div>
@@ -128,7 +130,7 @@
 
 import { unzipTerraform } from './unzip.js';
 import { COLORS, filterGraph, friendlyType, summarize, toMermaid } from './render.js';
-import { hasOfficialIcons, renderDiagram, setOfficialIcons } from './diagram.js';
+import { hasOfficialIcons, renderArchitecture, renderDiagram, setOfficialIcons } from './diagram.js';
 const $ = (id) => document.getElementById(id);
 let lastData = null;
 // Search GitHub has two pages: the result list, and the diagram of the repo you pressed Draw on. Back returns to the list.
@@ -196,7 +198,10 @@ async function draw() {
   shownEdges = layer || $('q').value ? null : shownGraph.edges; // null = filtered view, so a missing arrow proves nothing
   drawLegend(shownGraph);
   try {
-    $('out').innerHTML = renderDiagram(shownGraph, { direction: $('dir').value });
+    const arch = $('style').value === 'arch';
+    $('animLabel').hidden = !arch;
+    if (arch) $('legend').innerHTML = '<span class="k"><b style="color:#e8710a">orange dashed arrows</b> traffic flow: from the internet and load balancers, through compute, to data stores (inferred from references in the code)</span><span class="k"><b>boxes</b> AWS Cloud / Azure, then VPC / virtual network, then subnet; green = public, blue = private (by name)</span><span class="k"><b>×N</b> several of that resource; click an icon for details</span>';
+    $('out').innerHTML = arch ? renderArchitecture(view, { animate: $('anim').checked }) : renderDiagram(shownGraph, { direction: $('dir').value });
     const el = $('out').querySelector('svg');
     if ($('fit').checked && el) { el.removeAttribute('height'); el.style.width = '100%'; el.style.height = 'auto'; }
   } catch (e) { $('out').textContent = 'Could not draw this view: ' + e.message; }
@@ -300,7 +305,7 @@ $('back').addEventListener('click', () => {
   $('panel').hidden = true;
   draw().then(() => $('backbar').scrollIntoView({ block: 'nearest' }));
 });
-for (const id of ['scope', 'collapse', 'dir', 'fit', 'detail']) $(id).addEventListener('change', draw);
+for (const id of ['scope', 'collapse', 'dir', 'fit', 'detail', 'style', 'anim']) $(id).addEventListener('change', draw);
 $('inactive').addEventListener('change', () => { if (lastData) run(); });
 $('q').addEventListener('input', () => { clearTimeout($('q')._t); $('q')._t = setTimeout(draw, 250); });
 

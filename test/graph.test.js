@@ -1026,3 +1026,40 @@ test('checks: helper providers (random, null) are not "other clouds"; unsure cou
   assert.ok(!checks.some((c) => /other providers/.test(c.text)));
   assert.ok(checks.some((c) => c.level === 'info' && /could not be worked out \(instance i\)/.test(c.text)), checks.map((c) => c.text).join(' | '));
 });
+
+test('architecture view nests resources in their subnet and VPC and draws traffic arrows', async () => {
+  const fs = await import('node:fs');
+  const vm = await import('node:vm');
+  if (!globalThis.dagre) vm.runInThisContext(fs.readFileSync(new URL('../public/vendor/dagre.min.js', import.meta.url), 'utf8'));
+  const { renderArchitecture } = await import('../public/diagram.js');
+  const g = buildGraph([{ path: 'a.tf', content: `
+    resource "aws_vpc" "main" { cidr_block = "10.0.0.0/16" }
+    resource "aws_subnet" "public_a" {
+      vpc_id = aws_vpc.main.id
+    }
+    resource "aws_subnet" "empty" {
+      vpc_id = aws_vpc.main.id
+    }
+    resource "aws_lb" "alb" { subnets = [aws_subnet.public_a.id] }
+    resource "aws_lb_target_group" "tg" { vpc_id = aws_vpc.main.id }
+    resource "aws_lb_listener" "l" {
+      load_balancer_arn = aws_lb.alb.arn
+      default_action { target_group_arn = aws_lb_target_group.tg.arn }
+    }
+    resource "aws_instance" "app" {
+      count = 2
+      subnet_id = aws_subnet.public_a.id
+    }
+    resource "aws_lb_target_group_attachment" "a" {
+      target_group_arn = aws_lb_target_group.tg.arn
+      target_id = aws_instance.app[0].id
+    }` }]);
+  const svg = renderArchitecture(g);
+  assert.ok(!svg.includes('NaN'));
+  assert.match(svg, /AWS Cloud/);
+  assert.match(svg, /VPC · main/);
+  assert.match(svg, /Public subnet · public_a/);
+  assert.match(svg, /×2/);
+  assert.equal((svg.match(/class="flow"/g) ?? []).length, 2);        // Internet -> load balancer -> instances
+  assert.ok(!renderArchitecture(g, { animate: false }).includes('class="arch"'));
+});
