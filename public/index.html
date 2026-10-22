@@ -27,6 +27,13 @@
   .legend span.k { display:inline-flex; align-items:center; gap:6px; }
   .legend i { width:12px; height:12px; border-radius:3px; display:inline-block; }
   .legend b { color:var(--fg); font-weight:600; }
+  #panel { position:fixed; left:0; right:0; bottom:0; max-height:55vh; overflow:auto; background:var(--card); color:var(--fg); border-top:2px solid var(--accent); padding:14px 16px 20px; box-shadow:0 -6px 24px rgba(0,0,0,.35); z-index:10; }
+  #panel[hidden] { display:none; }
+  #panel h2 { margin:0 28px 2px 0; font-size:17px; } #panel .meta { color:var(--muted); font-size:13px; margin-bottom:10px; }
+  #panel table { border-collapse:collapse; width:100%; font-size:14px; } #panel th, #panel td { text-align:left; padding:5px 10px 5px 0; border-bottom:1px solid var(--line); vertical-align:top; }
+  #panel th { color:var(--muted); font-weight:600; font-size:12px; text-transform:uppercase; letter-spacing:.04em; }
+  #panel code { font-family:ui-monospace, monospace; } #panel .deny { color:#dc2626; font-weight:600; } #panel .tag { color:var(--muted); font-size:12px; }
+  #panel #close { position:absolute; top:8px; right:10px; background:transparent; color:var(--fg); border:1px solid var(--line); padding:4px 10px; }
   details { margin-top:16px; } pre { overflow:auto; background:rgba(128,128,128,.1); padding:12px; border-radius:6px; }
 </style>
 </head>
@@ -66,15 +73,17 @@
   <div id="legend" class="legend"></div>
   <div id="out"></div>
   <details><summary>Mermaid source</summary><pre id="src"></pre></details>
+  <div id="panel" hidden></div>
   <p id="iconNote" class="legend" hidden>AWS and Azure service icons are the property of Amazon Web Services and Microsoft and are shown unmodified, as supplied by them, to label diagrams. This tool is not affiliated with or endorsed by either company.</p>
 </main>
 <script src="vendor/dagre.min.js"></script>
 <script type="module">
 
-import { COLORS, filterGraph, summarize, toMermaid } from './render.js';
+import { COLORS, filterGraph, friendlyType, summarize, toMermaid } from './render.js';
 import { hasOfficialIcons, renderDiagram, setOfficialIcons } from './diagram.js';
 const $ = (id) => document.getElementById(id);
 let lastData = null;
+let shownNodes = new Map(); // id -> node in the diagram currently drawn
 // Official AWS / Azure icons are optional: present only after scripts/import-icons.mjs has been run.
 fetch('icons/manifest.json').then((r) => (r.ok ? r.json() : {})).catch(() => ({})).then((m) => {
   setOfficialIcons(m);
@@ -122,10 +131,10 @@ async function draw() {
   const overview = $('detail').value === 'overview';
   const shownGraph = overview ? summarize(view) : view;
   $('src').textContent = toMermaid(shownGraph, { direction: $('dir').value, flow: true, colors: true });
+  shownNodes = new Map(shownGraph.nodes.map((n) => [n.id, n]));
   drawLegend(shownGraph);
   try {
-    const { owner, repo, branch } = lastData;
-    $('out').innerHTML = renderDiagram(shownGraph, { direction: $('dir').value, link: owner ? { owner, repo, branch } : null });
+    $('out').innerHTML = renderDiagram(shownGraph, { direction: $('dir').value });
     const el = $('out').querySelector('svg');
     if ($('fit').checked && el) { el.removeAttribute('height'); el.style.width = '100%'; el.style.height = 'auto'; }
   } catch (e) { $('out').textContent = 'Could not draw this view: ' + e.message; }
@@ -146,18 +155,51 @@ function drawLegend(g) {
   $('legend').innerHTML = cats.map(key).join('') +
     '<span class="k"><b>→</b> flows from a resource to what uses it</span>' +
     '<span class="k"><b>number badge</b> how many resources of that type are grouped; click the card to see each one</span>' +
+    '<span class="k"><b>click a card</b> to see its rules / routes, IP ranges and source line</span>' +
     '<span class="k"><b>icon + code</b> the service (EC2, S3, NSG, AKS...); the colour is its layer</span>' +
     '<span class="k"><b>coloured monospace line</b> the IP range (CIDR) the resource declares, when it can be worked out</span>' +
     '<span class="k"><b>name</b> shown under the type: the Terraform name, or the Name tag / file:line when the name is just "this"</span>' +
     '<span class="k"><b>dashed card</b> connected from another layer</span>' +
     '<span class="k"><b>dashed purple box</b> an expanded module</span>';
 }
+const H = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const sourceLink = (n) => {
+  const { owner, repo, branch } = lastData;
+  if (!owner || !n.file) return `${H(n.file ?? '')}${n.line ? `:${n.line}` : ''}`;
+  const url = `https://github.com/${owner}/${repo}/blob/${branch}/${n.file.split('/').map(encodeURIComponent).join('/')}${n.line ? `#L${n.line}` : ''}`;
+  return `<a href="${H(url)}" target="_blank" rel="noopener">${H(n.file)}${n.line ? `:${n.line}` : ''} ↗</a>`;
+};
+
+function showDetails(id) {
+  const n = shownNodes.get(id);
+  if (!n) return;
+  const d = n.details;
+  let body = '';
+  if (d?.kind === 'rules') {
+    body = d.rows.length ? `<table><tr><th>Direction</th><th>Protocol</th><th>Port</th><th>${d.rows.some((r) => r.dir === 'out') ? 'From / to' : 'From'}</th><th>Note</th></tr>${d.rows.map((r) => `<tr>
+      <td>${r.dir === 'in' ? '↓ inbound' : '↑ outbound'}</td><td>${H(r.proto || '—')}</td><td><code>${H(r.ports || 'all')}</code></td>
+      <td>${r.peers.length ? r.peers.map((p) => `<code>${H(p)}</code>`).join(', ') : '—'}</td>
+      <td>${/^allow$/i.test(r.action ?? 'Allow') ? '' : `<span class="deny">${H(r.action)}</span> `}${H(r.note || '')}${r.priority ? ` <span class="tag">priority ${H(r.priority)}</span>` : ''}${r.dynamic ? ' <span class="tag">dynamic block</span>' : ''}</td></tr>`).join('')}</table>` : '<p>No rules are defined in the Terraform for this group.</p>';
+  } else if (d?.kind === 'routes') {
+    body = d.rows.length ? `<table><tr><th>Destination</th><th>Goes to</th><th>Note</th></tr>${d.rows.map((r) => `<tr><td><code>${H(r.dest)}</code></td><td>${H(r.target || '—')}</td><td>${H(r.note || '')}${r.dynamic ? ' <span class="tag">dynamic block</span>' : ''}</td></tr>`).join('')}</table>` : '<p>No routes are defined in the Terraform for this table (traffic stays local to the network).</p>';
+  }
+  const ranges = n.cidrs?.length ? `<p>IP range${n.cidrs.length > 1 ? 's' : ''}: ${n.cidrs.map((c) => `<code>${H(c)}</code>`).join(', ')}</p>` : '';
+  const type = n.kind === 'module' ? 'Module' : friendlyType(n.type);
+  $('panel').innerHTML = `<button id="close" type="button">✕</button><h2>${H(type)} · ${H(n.label ?? n.name)}</h2>
+    <div class="meta">${H(n.kind === 'module' ? `module.${n.name}` : `${n.type}.${n.name}`)} · ${sourceLink(n)}</div>${ranges}${body}`;
+  $('panel').hidden = false;
+  $('close').addEventListener('click', () => { $('panel').hidden = true; });
+}
+
 $('out').addEventListener('click', (e) => {
+  const node = e.target.closest('[data-node]');
+  if (node) { showDetails(node.dataset.node); return; }
   const card = e.target.closest('[data-expand]');
   if (!card) return;
   $('q').value = card.dataset.expand + '.';
   $('detail').value = 'detailed';
   $('back').hidden = false;
+  $('panel').hidden = true;
   draw();
 });
 $('back').addEventListener('click', () => { $('q').value = ''; $('detail').value = 'overview'; $('back').hidden = true; draw(); });
@@ -180,7 +222,7 @@ async function run() {
     $('status').textContent = `${where}${data.graph.provider.toUpperCase()}: ${nodes.length} resources${mods ? `, ${mods} expanded modules` : ''}, ${edges.length} dependencies` + (data.truncated ? ' (repo tree truncated)' : '');
     if (!nodes.length) { $('view').hidden = true; $('out').textContent = 'No ' + data.graph.provider.toUpperCase() + ' resources found. Try the other cloud in the dropdown.'; return; }
     lastData = data;
-    layer = ''; $('q').value = ''; $('scope').value = ''; $('back').hidden = true; 
+    layer = ''; $('q').value = ''; $('scope').value = ''; $('back').hidden = true; $('panel').hidden = true; 
     buildControls();
     await draw();
     if (mode() === 'repo') history.replaceState(null, '', '?repo=' + encodeURIComponent($('repo').value));

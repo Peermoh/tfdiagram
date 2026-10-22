@@ -145,8 +145,8 @@ const glyph = (icon) => (icon === 'lambda'
   ? '<text x="12" y="19" text-anchor="middle" font-size="20" font-weight="700" fill="#fff" stroke="none">λ</text>'
   : `<path d="${P[icon] ?? P.cube}"/>`);
 
-// link: { owner, repo, branch } to make cards open their file on GitHub.
-export function renderDiagram(graph, { direction = 'LR', link = null } = {}) {
+// Cards carry data-node (open details) or data-expand (grouped cards: show each resource); the page handles the clicks.
+export function renderDiagram(graph, { direction = 'LR' } = {}) {
   const dagre = globalThis.dagre;
   const g = new dagre.graphlib.Graph({ compound: true });
   const hasModules = graph.nodes.some(isContainer);
@@ -172,7 +172,7 @@ export function renderDiagram(graph, { direction = 'LR', link = null } = {}) {
         entry.set(n.id, `${n.id}#hdr`);
       }
     } else {
-      g.setNode(n.id, cell(W, n.cidrs?.length ? H_CIDR : H, { ref: n }));
+      g.setNode(n.id, cell(W, n.cidrs?.length || n.summary ? H_CIDR : H, { ref: n }));
     }
   }
   for (const n of graph.nodes) if (n.parent && byId.has(n.parent)) g.setParent(n.id, n.parent);
@@ -233,10 +233,9 @@ export function renderDiagram(graph, { direction = 'LR', link = null } = {}) {
     const label = n.label ?? n.name;
     const names = b.hdr || n.kind === 'module' ? (n.source ?? '') : n.kind === 'group' ? (n.names.length > 3 ? `${n.names.slice(0, 3).join(', ')} +${n.names.length - 3}` : n.names.join(', ')) : label;
     const ranges = n.cidrs?.length ? ` IP ranges: ${n.cidrs.join(', ')}.` : '';
-    const full = ranges + ' ' + (grouped ? `${n.count} ${plural(kind).toLowerCase()}: ${n.names.join(', ')}. Click to see each one.` : n.kind === 'group' || n.kind === 'resource' ? `${kind} "${label}" (${n.type}${n.kind === 'resource' ? `.${n.name}` : ''})` : title);
+    const full = ranges + (n.summary ? ` ${n.summary}.` : '') + ' ' + (grouped ? `${n.count} ${plural(kind).toLowerCase()}: ${n.names.join(', ')}. Click to see each one.` : n.kind === 'group' || n.kind === 'resource' ? `${kind} "${label}" (${n.type}${n.kind === 'resource' ? `.${n.name}` : ''}). Click for details.` : title);
     const icon = b.hdr || n.kind === 'module' ? 'cube' : iconFor(n.type);
     const code = b.hdr || n.kind === 'module' ? 'MOD' : abbrFor(n.type);
-    const href = !grouped && link && n.file ? `https://github.com/${link.owner}/${link.repo}/blob/${link.branch}/${n.file.split('/').map(encodeURIComponent).join('/')}${n.line ? `#L${n.line}` : ''}` : null;
     const official = !b.hdr && n.kind !== 'module' && OFFICIAL[n.type];
     // official artwork is shown as supplied (unmodified); the layer colour stays on the card border
     const tile = official
@@ -244,17 +243,18 @@ export function renderDiagram(graph, { direction = 'LR', link = null } = {}) {
       : `<rect x="1" y="1" width="46" height="${h - 2}" rx="8" fill="${color}"/><rect x="30" y="1" width="17" height="${h - 2}" fill="${color}"/>
 <g transform="translate(11 ${h / 2 - 25})" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${glyph(icon)}</g>
 <text x="24" y="${h / 2 + 21}" text-anchor="middle" font-size="9.5" font-weight="700" fill="#fff" letter-spacing=".3">${esc(code)}</text>`;
+    const extra = n.summary || cidrText(n.cidrs);
     const badge = grouped ? `<circle cx="${b.cw}" cy="0" r="12" fill="${color}" stroke="var(--card)" stroke-width="2.5"/><text x="${b.cw}" y="4.5" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">${n.count}</text>` : '';
-    const card = `<g transform="translate(${x} ${y})"${n.ghost ? ' opacity="0.5"' : ''}${grouped ? ` data-expand="${esc(n.type)}" style="cursor:pointer"` : ''}>
+    const card = `<g transform="translate(${x} ${y})"${n.ghost ? ' opacity="0.5"' : ''}${grouped ? ` data-expand="${esc(n.type)}"` : b.hdr ? '' : ` data-node="${esc(n.id)}"`} style="cursor:pointer">
 <title>${esc(full)}</title>
 <rect width="${b.cw}" height="${h}" rx="9" fill="var(--card)" stroke="${color}" stroke-width="1.6"${n.ghost ? ' stroke-dasharray="5 4"' : ''}/>
 ${tile}
 <text x="58" y="${h === H_CIDR ? 27 : h / 2 - 3}" font-size="13" font-weight="700" fill="var(--fg)">${esc(clip(title, 22))}</text>
 <text x="58" y="${h === H_CIDR ? 44 : h / 2 + 14}" font-size="12" fill="var(--muted)">${esc(clip(names, 26))}</text>
-${n.cidrs?.length ? `<text x="58" y="63" font-size="12" font-family="ui-monospace, monospace" fill="${color}" font-weight="600">${esc(clip(cidrText(n.cidrs), 26))}</text>` : ''}
+${extra ? `<text x="58" y="63" font-size="12" font-family="ui-monospace, monospace" fill="${color}" font-weight="600">${esc(clip(extra, 27))}</text>` : ''}
 ${badge}
 </g>`;
-    out.push(href ? `<a href="${esc(href)}" target="_blank" rel="noopener" style="cursor:pointer">${card}</a>` : card);
+    out.push(card);
   }
   out.push('</svg>');
   return out.join('\n');

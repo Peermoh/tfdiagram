@@ -310,3 +310,147 @@ test('cidr: literals, variable defaults, module arguments, cidrsubnet, azure', a
     resource "azurerm_subnet" "app" { address_prefixes = ["10.2.1.0/24"] }` }], { provider: 'azure' });
   assert.deepEqual(az.nodes.map((n) => n.cidrs), [['10.2.0.0/16'], ['10.2.1.0/24']]);
 });
+
+test('details: security group rules (inline, dynamic, separate resources) and route tables', () => {
+  const g = buildGraph([{ path: 'n.tf', content: `
+    resource "aws_security_group" "web" {
+      name = "web"
+      ingress {
+        from_port   = 443
+        to_port     = 443
+        protocol    = "tcp"
+        cidr_blocks = ["0.0.0.0/0"]
+        description = "https"
+      }
+      ingress {
+        from_port       = 80
+        to_port         = 80
+        protocol        = "tcp"
+        security_groups = [aws_security_group.lb.id]
+      }
+      dynamic "ingress" {
+        for_each = var.ports
+        content {
+          from_port   = ingress.value
+          to_port     = ingress.value
+          protocol    = "tcp"
+          cidr_blocks = ["10.0.0.0/8"]
+        }
+      }
+      egress {
+        from_port   = 0
+        to_port     = 0
+        protocol    = "-1"
+        cidr_blocks = ["0.0.0.0/0"]
+      }
+    }
+    resource "aws_security_group" "lb" {}
+    resource "aws_security_group_rule" "ssh" {
+      type              = "ingress"
+      security_group_id = aws_security_group.web.id
+      from_port         = 22
+      to_port           = 22
+      protocol          = "tcp"
+      cidr_blocks       = ["10.1.0.0/16"]
+    }
+    resource "aws_vpc_security_group_egress_rule" "dns" {
+      security_group_id = aws_security_group.lb.id
+      ip_protocol       = "udp"
+      from_port         = 53
+      to_port           = 53
+      cidr_ipv4         = "10.2.0.0/16"
+    }
+    resource "aws_internet_gateway" "igw" {}
+    resource "aws_route_table" "public" {
+      route {
+        cidr_block = "0.0.0.0/0"
+        gateway_id = aws_internet_gateway.igw.id
+      }
+    }
+    resource "aws_route_table" "private" {}
+    resource "aws_route" "nat" {
+      route_table_id         = aws_route_table.private.id
+      destination_cidr_block = "0.0.0.0/0"
+      nat_gateway_id         = aws_nat_gateway.n.id
+    }
+    resource "aws_nat_gateway" "n" {}` }]);
+  const node = (id) => g.nodes.find((n) => n.id === id);
+
+  const web = node('aws_security_group.web').details;
+  assert.equal(web.kind, 'rules');
+  const ins = web.rows.filter((r) => r.dir === 'in');
+  assert.deepEqual(ins.map((r) => [r.proto, r.ports, r.peers.join(',')]), [['tcp', '443', '0.0.0.0/0'], ['tcp', '80', 'Security group lb'], ['tcp', 'varies', '10.0.0.0/8'], ['tcp', '22', '10.1.0.0/16']]);
+  assert.equal(ins[0].note, 'https');
+  assert.equal(ins[2].dynamic, true);
+  assert.deepEqual(web.rows.filter((r) => r.dir === 'out').map((r) => [r.proto, r.ports]), [['all', 'all']]);
+  assert.equal(node('aws_security_group.web').summary, 'in 443, 80, varies +1 · out all');
+  assert.deepEqual(node('aws_security_group.lb').details.rows.map((r) => [r.dir, r.proto, r.ports, r.peers[0]]), [['out', 'udp', '53', '10.2.0.0/16']]);
+  assert.ok(!g.nodes.some((n) => n.type === 'aws_security_group_rule'), 'rule resources stay hidden');
+
+  assert.deepEqual(node('aws_route_table.public').details.rows, [{ dest: '0.0.0.0/0', target: 'Internet gateway igw', note: '', dynamic: false }]);
+  assert.deepEqual(node('aws_route_table.private').details.rows.map((r) => [r.dest, r.target]), [['0.0.0.0/0', 'NAT gateway n']]);
+  assert.equal(node('aws_route_table.public').summary, '0.0.0.0/0 → Internet gateway igw');
+});
+
+test('details: azure NSG rules and route tables', () => {
+  const g = buildGraph([{ path: 'a.tf', content: `
+    resource "azurerm_network_security_group" "nsg" {
+      security_rule {
+        name                       = "https"
+        priority                   = 100
+        direction                  = "Inbound"
+        access                     = "Allow"
+        protocol                   = "Tcp"
+        source_port_range          = "*"
+        destination_port_range     = "443"
+        source_address_prefix      = "Internet"
+        destination_address_prefix = "*"
+      }
+    }
+    resource "azurerm_network_security_rule" "deny" {
+      name                        = "deny-ssh"
+      priority                    = 200
+      direction                   = "Inbound"
+      access                      = "Deny"
+      protocol                    = "*"
+      destination_port_range      = "22"
+      source_address_prefix       = "*"
+      network_security_group_name = azurerm_network_security_group.nsg.name
+    }
+    resource "azurerm_route_table" "rt" {
+      route {
+        name           = "to-fw"
+        address_prefix = "0.0.0.0/0"
+        next_hop_type  = "VirtualAppliance"
+        next_hop_in_ip_address = "10.0.1.4"
+      }
+    }` }], { provider: 'azure' });
+  const nsg = g.nodes.find((n) => n.id === 'azurerm_network_security_group.nsg');
+  assert.deepEqual(nsg.details.rows.map((r) => [r.dir, r.action, r.proto, r.ports, r.peers[0], r.priority]), [['in', 'Allow', 'tcp', '443', 'Internet', '100'], ['in', 'Deny', 'all', '22', 'any', '200']]);
+  assert.equal(nsg.summary, 'in 443, ✗22');
+  const rt = g.nodes.find((n) => n.id === 'azurerm_route_table.rt');
+  assert.deepEqual(rt.details.rows.map((r) => [r.dest, r.target]), [['0.0.0.0/0', 'VirtualAppliance 10.0.1.4']]);
+});
+
+test('overview keeps a lone resource\'s details, drops them for real groups', async () => {
+  const { summarize } = await import('../public/render.js');
+  const g = buildGraph([{ path: 'a.tf', content: `
+    resource "aws_security_group" "only" { ingress {
+      from_port = 22
+      to_port = 22
+      protocol = "tcp"
+      cidr_blocks = ["10.0.0.0/8"]
+    } }
+    resource "aws_route_table" "a" {}
+    resource "aws_route_table" "b" {}` }]);
+  const o = summarize(g);
+  const sg = o.nodes.find((n) => n.type === 'aws_security_group');
+  assert.equal(sg.count, 1);
+  assert.equal(sg.summary, 'in 22');
+  assert.equal(sg.details.rows.length, 1);
+  assert.equal(sg.label, 'only');
+  const rt = o.nodes.find((n) => n.type === 'aws_route_table');
+  assert.equal(rt.count, 2);
+  assert.equal(rt.details, undefined);
+  assert.equal(rt.summary, undefined);
+});

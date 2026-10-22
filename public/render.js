@@ -148,10 +148,13 @@ export function summarize(graph) {
     const id = `${n.parent}::${n.type}`;
     groupOf.set(n.id, id);
     if (!groups.has(id)) {
-      groups.set(id, { id, kind: 'group', type: n.type, category: n.category, parent: n.parent, file: n.file, line: n.line, names: [], cidrs: [], ghost: true, count: 0 });
+      groups.set(id, { id, kind: 'group', type: n.type, category: n.category, parent: n.parent, file: n.file, line: n.line, names: [], cidrs: [], ghost: true, count: 0,
+        // a lone resource keeps its own details; they are dropped as soon as a second one joins the group
+        name: n.name, label: n.label, details: n.details, summary: n.summary });
       nodes.push(groups.get(id));
     }
     const g = groups.get(id);
+    if (g.count === 1) { delete g.name; delete g.label; delete g.details; delete g.summary; }
     g.names.push(n.label ?? n.name);
     for (const c of n.cidrs ?? []) if (!g.cidrs.includes(c)) g.cidrs.push(c);
     g.count++;
