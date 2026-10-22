@@ -71,9 +71,11 @@ async function run() {
       : await fetch(`/api/diagram?repo=${encodeURIComponent($('repo').value)}&${qs}`, { headers: $('token').value ? { 'x-github-token': $('token').value } : {} });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
-    const { nodes, edges } = data.graph;
+    const { edges } = data.graph;
+    const nodes = data.graph.nodes.filter((n) => n.kind !== 'module' || !n.expanded);
+    const mods = data.graph.nodes.filter((n) => n.kind === 'module' && n.expanded).length;
     const where = data.owner ? `${data.owner}/${data.repo}@${data.branch}: ${data.fileCount} files, ` : '';
-    $('status').textContent = `${where}${data.graph.provider.toUpperCase()}: ${nodes.length} resources, ${edges.length} dependencies` + (data.truncated ? ' (repo tree truncated)' : '');
+    $('status').textContent = `${where}${data.graph.provider.toUpperCase()}: ${nodes.length} resources${mods ? `, ${mods} expanded modules` : ''}, ${edges.length} dependencies` + (data.truncated ? ' (repo tree truncated)' : '');
     if (!nodes.length) { $('out').textContent = 'No ' + data.graph.provider.toUpperCase() + ' resources found. Try the other cloud in the dropdown.'; return; }
     $('src').textContent = data.mermaid;
     const { svg } = await mermaid.render('d' + Date.now(), data.mermaid);

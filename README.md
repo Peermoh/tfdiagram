@@ -11,6 +11,7 @@ Private repos or rate limits: paste a GitHub token in the page (sent per request
 
 ## How it works
 - `lib/github.js` lists and downloads `.tf` files via the GitHub API.
+- `lib/modules.js` follows local module sources (`./x`, `../../`) and loads those folders too.
 - `lib/parse.js` extracts `resource` / `module` / `data` blocks.
 - `lib/graph.js` finds references between blocks (`aws_subnet.x.id`) as edges, groups nodes
   (Networking, Compute, Data, Security & IAM), hides plumbing by default, and emits Mermaid.
@@ -20,7 +21,7 @@ Private repos or rate limits: paste a GitHub token in the page (sent per request
 Paste `.tf` code or give a GitHub URL; pick AWS, Azure, or auto-detect.
 
 ## Not yet
-Cloud icons, `count`/`for_each` expansion, registry module internals, GCP, plan diffs.
+Cloud icons, `count`/`for_each` expansion, registry (non-local) module internals, GCP, plan diffs.
 
 ## Deploy (Cloudflare Workers)
 `wrangler.jsonc` serves `public/` as static assets and routes `/api/*` to `worker.js`.

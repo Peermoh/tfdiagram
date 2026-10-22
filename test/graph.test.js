@@ -54,3 +54,33 @@ test('azure: detects provider, groups, hides associations', () => {
 test('explicit provider ignores the other cloud', () => {
   assert.ok(buildGraph(files, { provider: 'azure' }).nodes.every((n) => n.kind === 'module'));
 });
+
+test('local module expansion', async () => {
+  const { loadTree, resolveDir } = await import('../lib/modules.js');
+  const dirs = {
+    'examples/simple': [{ path: 'examples/simple/main.tf', content: `
+      resource "aws_s3_bucket" "b" {}
+      module "vpc" { source = "../../"
+        bucket = aws_s3_bucket.b.id }
+      module "disabled" { source = "../../" }
+      module "reg" { source = "terraform-aws-modules/rds/aws" }
+      resource "aws_instance" "web" { subnet_id = module.vpc.subnet_id }` }],
+    '': [{ path: 'main.tf', content: `
+      resource "aws_vpc" "this" {}
+      resource "aws_subnet" "s" { vpc_id = aws_vpc.this.id }
+      module "self" { source = "./" }` }],
+  };
+  const tree = await loadTree('examples/simple', async (d) => dirs[d] ?? []);
+  const g = buildGraph(tree);
+  const ids = g.nodes.map((n) => n.id);
+  assert.ok(ids.includes('module.vpc.aws_vpc.this') && ids.includes('module.disabled.aws_vpc.this'));
+  assert.ok(has(g, 'module.vpc.aws_subnet.s', 'module.vpc.aws_vpc.this'));
+  assert.ok(!has(g, 'module.vpc.aws_subnet.s', 'module.disabled.aws_vpc.this'));
+  assert.ok(has(g, 'module.vpc', 'aws_s3_bucket.b'), 'module arguments reference parent resources');
+  assert.ok(has(g, 'aws_instance.web', 'module.vpc'), 'parent references module outputs');
+  assert.equal(g.nodes.find((n) => n.id === 'module.reg').expanded, false);
+  assert.ok(!ids.some((i) => i.startsWith('module.vpc.module.self.module.self')), 'cycles stop');
+  assert.match(toMermaid(g), /subgraph n_module_vpc\[/);
+  assert.equal(resolveDir('examples/simple', '../../'), '');
+  assert.equal(resolveDir('a', '../../x'), null);
+});
