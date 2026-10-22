@@ -1,0 +1,11 @@
+{
+  "name": "tfdiagram",
+  "version": "0.1.0",
+  "description": "Paste a GitHub repo URL, get an architecture diagram of its Terraform (AWS).",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test test/*.test.js"
+  },
+  "engines": { "node": ">=20" }
+}

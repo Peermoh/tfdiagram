@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TFDiagram</title>
+<style>
+  :root { --bg:#fff; --fg:#1a1a1a; --muted:#666; --line:#d8d8d8; --accent:#c2410c; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#111; --fg:#eee; --muted:#999; --line:#333; --accent:#fb923c; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.5 system-ui, sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 32px 16px; }
+  h1 { margin: 0 0 4px; } p.sub { margin: 0 0 24px; color: var(--muted); }
+  form { display:flex; gap:8px; flex-wrap:wrap; }
+  input[type=text], input[type=password] { flex:1 1 280px; padding:10px 12px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--fg); font:inherit; }
+  textarea { flex:1 1 100%; padding:10px 12px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--fg); font:13px/1.4 ui-monospace, monospace; }
+  select { padding:4px; background:var(--bg); color:var(--fg); border:1px solid var(--line); border-radius:6px; }
+  button { padding:10px 18px; border:0; border-radius:6px; background:var(--accent); color:#fff; font:inherit; cursor:pointer; }
+  button:disabled { opacity:.6; cursor:wait; }
+  .opts { margin:12px 0; display:flex; gap:16px; flex-wrap:wrap; color:var(--muted); font-size:14px; }
+  #status { margin:16px 0; color:var(--muted); } #status.err { color:#dc2626; }
+  #out { border:1px solid var(--line); border-radius:8px; padding:16px; overflow:auto; min-height:80px; }
+  details { margin-top:16px; } pre { overflow:auto; background:rgba(128,128,128,.1); padding:12px; border-radius:6px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>TFDiagram</h1>
+  <p class="sub">Paste Terraform code or a GitHub repo URL (AWS or Azure) and get an architecture diagram.</p>
+  <div class="opts">
+    <label><input type="radio" name="mode" value="paste" checked> Paste code</label>
+    <label><input type="radio" name="mode" value="repo"> GitHub URL</label>
+    <label>Cloud:
+      <select id="provider"><option value="auto">Auto-detect</option><option value="aws">AWS</option><option value="azure">Azure</option></select>
+    </label>
+  </div>
+  <form id="f">
+    <textarea id="code" rows="12" placeholder='resource "aws_vpc" "main" { ... }  (paste one or more .tf files)'></textarea>
+    <input type="text" id="repo" hidden placeholder="https://github.com/owner/repo or .../tree/main/infra">
+    <button id="go">Generate</button>
+  </form>
+  <div class="opts">
+    <label><input type="checkbox" id="simplify" checked> Hide plumbing (IAM attachments, SG rules, associations)</label>
+    <label id="tokenLabel" hidden>GitHub token (private repos): <input type="password" id="token" autocomplete="off" size="20"></label>
+  </div>
+  <div id="status"></div>
+  <div id="out"></div>
+  <details><summary>Mermaid source</summary><pre id="src"></pre></details>
+</main>
+<script type="module">
+import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs';
+const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+mermaid.initialize({ startOnLoad: false, theme: dark ? 'dark' : 'default', securityLevel: 'strict', maxTextSize: 200000 });
+
+const $ = (id) => document.getElementById(id);
+const mode = () => document.querySelector('input[name=mode]:checked').value;
+function syncMode() {
+  const paste = mode() === 'paste';
+  $('code').hidden = !paste; $('repo').hidden = paste; $('tokenLabel').hidden = paste;
+  $('code').required = paste; $('repo').required = !paste;
+}
+document.querySelectorAll('input[name=mode]').forEach((r) => r.addEventListener('change', syncMode));
+syncMode();
+
+async function run() {
+  $('go').disabled = true; $('status').className = ''; $('status').textContent = mode() === 'paste' ? 'Parsing…' : 'Fetching Terraform files…';
+  try {
+    const qs = `simplify=${$('simplify').checked ? 1 : 0}&provider=${$('provider').value}`;
+    const res = mode() === 'paste'
+      ? await fetch(`/api/diagram?${qs}`, { method: 'POST', body: JSON.stringify({ code: $('code').value }) })
+      : await fetch(`/api/diagram?repo=${encodeURIComponent($('repo').value)}&${qs}`, { headers: $('token').value ? { 'x-github-token': $('token').value } : {} });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    const { nodes, edges } = data.graph;
+    const where = data.owner ? `${data.owner}/${data.repo}@${data.branch}: ${data.fileCount} files, ` : '';
+    $('status').textContent = `${where}${data.graph.provider.toUpperCase()}: ${nodes.length} resources, ${edges.length} dependencies` + (data.truncated ? ' (repo tree truncated)' : '');
+    if (!nodes.length) { $('out').textContent = 'No ' + data.graph.provider.toUpperCase() + ' resources found. Try the other cloud in the dropdown.'; return; }
+    $('src').textContent = data.mermaid;
+    const { svg } = await mermaid.render('d' + Date.now(), data.mermaid);
+    $('out').innerHTML = svg;
+    if (mode() === 'repo') history.replaceState(null, '', '?repo=' + encodeURIComponent($('repo').value));
+  } catch (e) {
+    $('status').className = 'err'; $('status').textContent = e.message;
+  } finally { $('go').disabled = false; }
+}
+$('f').addEventListener('submit', (e) => { e.preventDefault(); run(); });
+const q = new URLSearchParams(location.search).get('repo');
+if (q) { document.querySelector('input[value=repo]').checked = true; syncMode(); $('repo').value = q; run(); }
+</script>
+</body>
+</html>
