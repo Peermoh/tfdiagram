@@ -228,6 +228,7 @@ function drawLegend(g) {
   $('legend').innerHTML = cats.map(key).join('') +
     '<span class="k"><b>→</b> flows from a resource to what uses it</span>' +
     '<span class="k"><b>number badge</b> how many of that resource are created (count / for_each, or several grouped); click a grouped card to see each kind</span>' +
+    '<span class="k"><b>dashed arrow</b> only an ordering (depends_on): one thing is created after the other</span>' +
     '<span class="k"><b>number on an arrow</b> that many separate links are merged into it; hover the arrow to see them</span>' +
     '<span class="k"><b>click a card</b> to see its rules / routes, IP ranges and source line</span>' +
     '<span class="k"><b>icon + code</b> the service (EC2, S3, NSG, AKS...); the colour is its layer</span>' +

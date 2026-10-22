@@ -214,11 +214,11 @@ export function renderDiagram(graph, { direction = 'LR' } = {}) {
     // hovering an arrow says which individual links it stands for; several links get a count on the arrow
     const ref = g.edge(e).ref;
     const pairs = ref?.pairs ?? [];
-    const tip = pairs.length ? `${pairs.slice(0, 10).map(([consumer, provider]) => `${provider} → ${consumer}`).join('\n')}${pairs.length > 10 ? `\n+${pairs.length - 10} more` : ''}` : '';
+    const tip = ref?.ordering ? 'Only an ordering: depends_on says this is created first.' : pairs.length ? `${pairs.slice(0, 10).map(([consumer, provider]) => `${provider} → ${consumer}`).join('\n')}${pairs.length > 10 ? `\n+${pairs.length - 10} more` : ''}` : '';
     const last = pts[pts.length - 1];
     const pill = ref?.count > 1
       ? `<g transform="translate(${lr ? last.x - 34 : last.x} ${lr ? last.y : last.y - 34})"><rect x="-13" y="-10" width="26" height="20" rx="10" fill="var(--card)" stroke="var(--edge)"/><text y="4" text-anchor="middle" font-size="11" font-weight="700" fill="var(--fg)">${ref.count}</text></g>` : '';
-    out.push(`<g>${tip ? `<title>${esc(tip)}</title>` : ''}<path d="${d}" fill="none" stroke="transparent" stroke-width="12"/><path d="${d}" fill="none" stroke="var(--edge)" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arr)"/>${pill}</g>`);
+    out.push(`<g>${tip ? `<title>${esc(tip)}</title>` : ''}<path d="${d}" fill="none" stroke="transparent" stroke-width="12"/><path d="${d}" fill="none" stroke="var(--edge)" stroke-width="1.6" stroke-linejoin="round"${ref?.ordering ? ' stroke-dasharray="6 5"' : ''} marker-end="url(#arr)"/>${pill}</g>`);
   }
 
   for (const n of graph.nodes.filter(isContainer)) {

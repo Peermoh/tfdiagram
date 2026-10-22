@@ -119,7 +119,7 @@ export function filterGraph(graph, { scope = '', collapse = false, layers = null
 // "in" its VPC even though its route table is too.
 export function reduceEdges(edges) {
   const out = new Map();
-  for (const e of edges) { if (e.weak) continue; if (!out.has(e.from)) out.set(e.from, new Set()); out.get(e.from).add(e.to); }
+  for (const e of edges) { if (e.weak || e.ordering) continue; if (!out.has(e.from)) out.set(e.from, new Set()); out.get(e.from).add(e.to); }
   const reaches = (start, target, skipTo) => {
     const seen = new Set([start]);
     const stack = [...(out.get(start) ?? [])].filter((n) => n !== skipTo);
@@ -134,7 +134,7 @@ export function reduceEdges(edges) {
   };
   const kept = [];
   for (const e of edges) {
-    if (!e.weak && reaches(e.from, e.to, e.to)) out.get(e.from).delete(e.to);
+    if (!e.weak && !e.ordering && reaches(e.from, e.to, e.to)) out.get(e.from).delete(e.to);
     else kept.push(e);
   }
   return kept;
@@ -179,6 +179,9 @@ export function summarize(graph) {
   // a grouped arrow is weak only if every link in it is
   const strong = new Set(graph.edges.filter((e) => !e.weak).map((e) => `${groupOf.get(e.from)}\t${groupOf.get(e.to)}`));
   for (const e of edges) if (!strong.has(`${e.from}\t${e.to}`)) e.weak = true;
+  // an arrow that only says "after" (depends_on) is drawn dashed
+  const real = new Set(graph.edges.filter((e) => !e.ordering).map((e) => `${groupOf.get(e.from)}\t${groupOf.get(e.to)}`));
+  for (const e of edges) if (!real.has(`${e.from}\t${e.to}`) && graph.edges.some((x) => x.ordering && groupOf.get(x.from) === e.from && groupOf.get(x.to) === e.to)) e.ordering = true;
   return { ...graph, nodes, edges };
 }
 

@@ -898,3 +898,76 @@ test('computed settings still name the visible resources they use', () => {
   assert.equal(rows.vpc_security_group_ids, 'Security group this (computed)');
   assert.equal(rows.ami, 'SSM parameter ami');
 });
+
+test('module outputs and inputs are traced to the resources behind them (clipshare pattern)', async () => {
+  const { loadTree } = await import('../lib/modules.js');
+  const dirs = {
+    '': [{ path: 'main.tf', content: `
+      module "s3" { source = "./modules/s3" }
+      module "acm" {
+        source     = "./modules/acm"
+        depends_on = [module.s3]
+      }
+      module "cdn" {
+        source          = "./modules/cdn"
+        bucket_id       = module.s3.bucket_name
+        oai_arn         = module.s3.oai_arn
+        certificate_arn = module.acm.certificate_arn
+        depends_on      = [module.s3, module.acm]
+      }
+      module "dns" {
+        source      = "./modules/dns"
+        cdn_domain  = module.cdn.domain_name
+        depends_on  = [module.cdn]
+      }` }],
+    'modules/s3': [{ path: 'modules/s3/main.tf', content: `
+      resource "aws_s3_bucket" "b" {}
+      resource "aws_cloudfront_origin_access_identity" "oai" {}
+      output "bucket_name" { value = aws_s3_bucket.b.id }
+      output "oai_arn"     { value = aws_cloudfront_origin_access_identity.oai.iam_arn }` }],
+    'modules/acm': [{ path: 'modules/acm/main.tf', content: `
+      resource "aws_acm_certificate" "c" {}
+      resource "aws_acm_certificate_validation" "v" { certificate_arn = aws_acm_certificate.c.arn }
+      output "certificate_arn" { value = aws_acm_certificate_validation.v.certificate_arn }` }],
+    'modules/cdn': [{ path: 'modules/cdn/main.tf', content: `
+      variable "bucket_id" {}
+      variable "oai_arn" {}
+      variable "certificate_arn" {}
+      resource "aws_cloudfront_distribution" "d" {
+        origin_id       = var.bucket_id
+        oai             = var.oai_arn
+        certificate_arn = var.certificate_arn
+      }
+      output "domain_name" { value = aws_cloudfront_distribution.d.domain_name }` }],
+    'modules/dns': [{ path: 'modules/dns/main.tf', content: `
+      variable "cdn_domain" {}
+      resource "aws_route53_record" "www" { records = [var.cdn_domain] }` }],
+  };
+  const g = buildGraph(await loadTree('', async (d) => dirs[d] ?? []));
+  const flow = g.edges.map((e) => `${e.to.replace(/module\.\w+\./, '')}>${e.from.replace(/module\.\w+\./, '')}`);
+  const has = (from, to) => g.edges.some((e) => e.to.endsWith(from) && e.from.endsWith(to));
+  assert.ok(has('aws_s3_bucket.b', 'aws_cloudfront_distribution.d'), flow.join(' | '));            // module.s3.bucket_name -> var.bucket_id -> the distribution
+  assert.ok(has('aws_cloudfront_origin_access_identity.oai', 'aws_cloudfront_distribution.d'));
+  assert.ok(has('aws_acm_certificate_validation.v', 'aws_cloudfront_distribution.d'));              // through the output's own reference
+  assert.ok(has('aws_cloudfront_distribution.d', 'aws_route53_record.www'));
+  // the module boxes are not linked again where resources already are...
+  assert.ok(!g.edges.some((e) => e.from === 'module.cdn' && e.to === 'module.s3'));
+  assert.ok(!g.edges.some((e) => e.from === 'module.dns' && e.to === 'module.cdn'));
+  // ...but a pure depends_on with nothing else behind it stays, marked as ordering only
+  const order = g.edges.find((e) => e.from === 'module.acm' && e.to === 'module.s3');
+  assert.equal(order?.ordering, true);
+});
+
+test('an argument nobody uses inside the module, or an output it cannot follow, still links the module boxes', () => {
+  // output of a data source: nothing visible behind it
+  const g = buildGraph({ files: [{ path: 'm.tf', content: `
+    module "a" { source = "./a" }
+    module "b" {
+      source = "./b"
+      zone   = module.a.zone_id
+    }` }], children: {
+    a: { dir: 'a', files: [{ path: 'a/m.tf', content: 'data "aws_route53_zone" "z" {}\nresource "aws_vpc" "v" {}\noutput "zone_id" { value = data.aws_route53_zone.z.zone_id }' }], children: {} },
+    b: { dir: 'b', files: [{ path: 'b/m.tf', content: 'variable "zone" {}\nresource "aws_vpc" "w" {}' }], children: {} },
+  } });
+  assert.ok(g.edges.some((e) => e.from === 'module.b' && e.to === 'module.a' && !e.ordering), 'falls back to module -> module');
+});
