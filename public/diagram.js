@@ -146,7 +146,7 @@ const glyph = (icon) => (icon === 'lambda'
   : `<path d="${P[icon] ?? P.cube}"/>`);
 
 // Cards carry data-node (open details) or data-expand (grouped cards: show each resource); the page handles the clicks.
-export function renderDiagram(graph, { direction = 'LR' } = {}) {
+export function renderDiagram(graph, { direction = 'LR', animate = false } = {}) {
   const dagre = globalThis.dagre;
   const g = new dagre.graphlib.Graph({ compound: true });
   const hasModules = graph.nodes.some(isContainer);
@@ -187,6 +187,8 @@ export function renderDiagram(graph, { direction = 'LR' } = {}) {
   const svgH = Math.ceil(g.graph().height);
   const out = [];
   out.push(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${svgW} ${svgH}" width="${svgW}" height="${svgH}" font-family="system-ui, sans-serif">`);
+ out.push(`<style>.flow{stroke-dasharray:7 6;animation:tfflow 0.9s linear infinite}@keyframes tfflow{to{stroke-dashoffset:-13}}@media (prefers-reduced-motion:reduce){.flow{animation:none}}</style>`);
+  out.push(`<defs><marker id="farr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="${ARCH.flow}"/></marker></defs>`);
   out.push('<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--edge)"/></marker></defs>');
 
   // modules first, so cards and arrows draw on top
@@ -218,7 +220,9 @@ export function renderDiagram(graph, { direction = 'LR' } = {}) {
     const last = pts[pts.length - 1];
     const pill = ref?.count > 1
       ? `<g transform="translate(${lr ? last.x - 34 : last.x} ${lr ? last.y : last.y - 34})"><rect x="-13" y="-10" width="26" height="20" rx="10" fill="var(--card)" stroke="var(--edge)"/><text y="4" text-anchor="middle" font-size="11" font-weight="700" fill="var(--fg)">${ref.count}</text></g>` : '';
-    out.push(`<g>${tip ? `<title>${esc(tip)}</title>` : ''}<path d="${d}" fill="none" stroke="transparent" stroke-width="12"/><path d="${d}" fill="none" stroke="var(--edge)" stroke-width="1.6" stroke-linejoin="round"${ref?.ordering ? ' stroke-dasharray="6 5"' : ''} marker-end="url(#arr)"/>${pill}</g>`);
+    out.push(`<g>${tip ? `<title>${esc(tip)}</title>` : ''}<path d="${d}" fill="none" stroke="transparent" stroke-width="12"/>${animate && !ref?.ordering
+      ? `<path d="${d}" fill="none" stroke="${ARCH.flow}" stroke-width="2" stroke-linejoin="round" class="flow" marker-end="url(#farr)"/>`
+      : `<path d="${d}" fill="none" stroke="var(--edge)" stroke-width="1.6" stroke-linejoin="round"${ref?.ordering ? ' stroke-dasharray="6 5"' : ''} marker-end="url(#arr)"/>`}${pill}</g>`);
   }
 
   for (const n of graph.nodes.filter(isContainer)) {

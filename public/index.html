@@ -7,10 +7,12 @@
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="theme-color" content="#0b1120">
-<script>try { if (localStorage.getItem('tfTheme') === 'dark') document.documentElement.dataset.theme = 'dark'; } catch {}</script>
+<script>try { const t = localStorage.getItem('tfTheme'); if (t) document.documentElement.dataset.theme = t; } catch {}</script>
 <style>
   :root { --bg:#fff; --fg:#1a1a1a; --muted:#666; --line:#d8d8d8; --accent:#c2410c; --card:#fff; --edge:#64748b; }
-  @media (prefers-color-scheme: dark) { :root { --bg:#111; --fg:#eee; --muted:#999; --line:#333; --accent:#fb923c; --card:#1b1b1b; --edge:#94a3b8; } }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme=light]) { --bg:#111; --fg:#eee; --muted:#999; --line:#333; --accent:#fb923c; --card:#1b1b1b; --edge:#94a3b8; } }
+  :root[data-theme=light] { color-scheme:light; }
+  input[type=search] { padding:6px 10px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--fg); font:inherit; }
   :root[data-theme=dark] { --bg:#111; --fg:#eee; --muted:#999; --line:#333; --accent:#fb923c; --card:#1b1b1b; --edge:#94a3b8; color-scheme:dark; }
   #themebox { float:right; font-size:14px; color:var(--muted); }
   * { box-sizing: border-box; }
@@ -65,7 +67,7 @@
 </head>
 <body>
 <main>
-  <label id="themebox">Theme: <select id="theme"><option value="">Default</option><option value="dark">Dark</option></select></label>
+  <label id="themebox">Theme: <select id="theme"><option value="">Default</option><option value="dark">Dark</option><option value="light">Light</option></select></label>
   <h1 class="brand"><img src="logo.svg" alt="" width="44" height="44"><span>TFDiagram</span></h1>
   <p class="sub">Paste Terraform code or a GitHub repo URL (AWS or Azure) and get an architecture diagram.</p>
   <div class="opts">
@@ -118,7 +120,7 @@
       <label>Detail: <select id="detail"><option value="overview">Overview</option><option value="detailed">Every resource</option></select></label>
       <label>Direction: <select id="dir"><option value="LR">Left to right</option><option value="TB">Top to bottom</option></select></label>
       <label>Style: <select id="style"><option value="arch">Architecture</option><option value="cards">Cards</option></select></label>
-      <label id="animLabel" hidden><input type="checkbox" id="anim" checked> Animate traffic</label>
+      <label id="animLabel"><input type="checkbox" id="anim" checked> Animate traffic</label>
       <label><input type="checkbox" id="fit"> Fit to width</label>
     </div>
   </div>
@@ -141,11 +143,11 @@ import { COLORS, filterGraph, friendlyType, summarize, toMermaid } from './rende
 import { hasOfficialIcons, renderArchitecture, renderDiagram, setOfficialIcons } from './diagram.js';
 const $ = (id) => document.getElementById(id);
 let lastData = null;
-try { $('theme').value = localStorage.getItem('tfTheme') === 'dark' ? 'dark' : ''; } catch {}
+try { $('theme').value = localStorage.getItem('tfTheme') || ''; } catch {}
 $('theme').addEventListener('change', () => {
-  const dark = $('theme').value === 'dark';
-  if (dark) document.documentElement.dataset.theme = 'dark'; else delete document.documentElement.dataset.theme;
-  try { localStorage.setItem('tfTheme', dark ? 'dark' : ''); } catch {}
+  const t = $('theme').value;
+  if (t) document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme;
+  try { localStorage.setItem('tfTheme', t); } catch {}
 });
 // Search GitHub has two pages: the result list, and the diagram of the repo you pressed Draw on. Back returns to the list.
 let searchView = 'list';
@@ -213,10 +215,9 @@ async function draw() {
   drawLegend(shownGraph);
   try {
     const arch = $('style').value === 'arch';
-    $('animLabel').hidden = !arch;
     if (arch) { shownNodes = new Map(view.nodes.map((n) => [n.id, n])); shownEdges = layer || $('q').value ? null : view.edges; }   // tiles stand for single resources, so details open per resource
     if (arch) $('legend').innerHTML = '<span class="k"><b style="color:#e8710a">orange dashed arrows</b> traffic flow: from the internet and load balancers, through compute, to data stores (inferred from references in the code)</span><span class="k"><b>boxes</b> AWS Cloud / Azure, then VPC / virtual network, then subnet; green = public, blue = private (by name)</span><span class="k"><b>×N</b> several of that resource; click an icon for details</span>';
-    $('out').innerHTML = arch ? renderArchitecture(view, { animate: $('anim').checked }) : renderDiagram(shownGraph, { direction: $('dir').value });
+    $('out').innerHTML = arch ? renderArchitecture(view, { animate: $('anim').checked }) : renderDiagram(shownGraph, { direction: $('dir').value, animate: $('anim').checked });
     const el = $('out').querySelector('svg');
     if ($('fit').checked && el) { el.removeAttribute('height'); el.style.width = '100%'; el.style.height = 'auto'; }
   } catch (e) { $('out').textContent = 'Could not draw this view: ' + e.message; }
@@ -261,9 +262,9 @@ function drawLegend(g) {
   const cats = [...new Set(g.nodes.filter((n) => !(n.kind === 'module' && n.expanded)).map((n) => n.category))];
   const key = (c) => `<span class="k"><i style="background:${COLORS[c] ?? COLORS.Other}"></i><b>${c}</b> ${MEANING[c] ?? ''}</span>`;
   $('legend').innerHTML = cats.map(key).join('') +
-    '<span class="k"><b>→</b> flows from a resource to what uses it</span>' +
+    '<span class="k"><b style="color:#e8710a">orange moving arrow</b> flows from a resource to what uses it (turn off with Animate traffic)</span>' +
     '<span class="k"><b>number badge</b> how many of that resource are created (count / for_each, or several grouped); click a grouped card to see each kind</span>' +
-    '<span class="k"><b>dashed arrow</b> only an ordering (depends_on): one thing is created after the other</span>' +
+    '<span class="k"><b>grey dashed arrow</b> only an ordering (depends_on): one thing is created after the other</span>' +
     '<span class="k"><b>number on an arrow</b> that many separate links are merged into it; hover the arrow to see them</span>' +
     '<span class="k"><b>click a card</b> to see its rules / routes, IP ranges and source line</span>' +
     '<span class="k"><b>icon + code</b> the service (EC2, S3, NSG, AKS...); the colour is its layer</span>' +
