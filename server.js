@@ -1,54 +1,33 @@
+// Local dev server: same API handler as the Worker, plus static files from ./public.
 import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { fetchTerraformFiles } from './lib/github.js';
-import { buildGraph, toMermaid } from './lib/graph.js';
+import { handleApi } from './lib/api.js';
 
 const PUBLIC = join(fileURLToPath(new URL('.', import.meta.url)), 'public');
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css' };
-
-const readBody = (req) => new Promise((resolve, reject) => {
-  let body = '';
-  req.on('data', (c) => { body += c; if (body.length > 1_000_000) { reject(new Error('Input too large')); req.destroy(); } });
-  req.on('end', () => resolve(body));
-  req.on('error', reject);
-});
-
-const json = (res, status, body) => {
-  res.writeHead(status, { 'content-type': 'application/json' });
-  res.end(JSON.stringify(body));
-};
+const PORT = process.env.PORT ?? 3000;
 
 http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
   try {
     if (url.pathname === '/api/diagram') {
-      const simplify = url.searchParams.get('simplify') !== '0';
-      const provider = url.searchParams.get('provider') ?? 'auto';
-      let files, meta = {};
-      if (req.method === 'POST') {
-        // Pasted Terraform: body is { code: "..." }
-        const { code } = JSON.parse(await readBody(req));
-        if (!code?.trim()) return json(res, 400, { error: 'Paste some Terraform code' });
-        files = [{ path: 'pasted.tf', content: code }];
-      } else {
-        const repo = url.searchParams.get('repo');
-        if (!repo) return json(res, 400, { error: 'Missing ?repo=' });
-        // The token is used for this request only and is never stored or logged.
-        const r = await fetchTerraformFiles(repo, req.headers['x-github-token']);
-        files = r.files;
-        meta = { owner: r.owner, repo: r.repo, branch: r.branch, truncated: r.truncated };
-      }
-      const graph = buildGraph(files, { simplify, provider });
-      return json(res, 200, { ...meta, fileCount: files.length, graph, mermaid: toMermaid(graph) });
+      const body = req.method === 'POST' ? await new Promise((resolve) => {
+        const chunks = [];
+        req.on('data', (c) => chunks.push(c));
+        req.on('end', () => resolve(Buffer.concat(chunks)));
+      }) : undefined;
+      const out = await handleApi(new Request(url, { method: req.method, headers: req.headers, body }), process.env);
+      res.writeHead(out.status, Object.fromEntries(out.headers));
+      return res.end(await out.text());
     }
     const rel = normalize(url.pathname === '/' ? '/index.html' : url.pathname);
-    if (rel.includes('..')) return json(res, 400, { error: 'bad path' });
-    const data = await readFile(join(PUBLIC, rel));
+    if (rel.includes('..')) { res.writeHead(400); return res.end(); }
     res.writeHead(200, { 'content-type': TYPES[extname(rel)] ?? 'application/octet-stream' });
-    res.end(data);
+    res.end(await readFile(join(PUBLIC, rel)));
   } catch (err) {
-    json(res, err.code === 'ENOENT' ? 404 : 500, { error: err.message });
+    res.writeHead(err.code === 'ENOENT' ? 404 : 500, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ error: err.message }));
   }
-}).listen(process.env.PORT ?? 3000, () => console.log(`tfdiagram on http://localhost:${process.env.PORT ?? 3000}`));
+}).listen(PORT, () => console.log(`tfdiagram on http://localhost:${PORT}`));

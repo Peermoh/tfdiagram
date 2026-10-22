@@ -22,6 +22,9 @@ Paste `.tf` code or give a GitHub URL; pick AWS, Azure, or auto-detect.
 ## Not yet
 Cloud icons, `count`/`for_each` expansion, registry module internals, GCP, plan diffs.
 
-## Deploy
-Render (free tier): New + > Blueprint > pick this repo; `render.yaml` and the `Dockerfile` do the rest.
-Any Docker host works too (Fly.io, Railway, Cloud Run): the container listens on `$PORT`.
+## Deploy (Cloudflare Workers)
+`wrangler.jsonc` serves `public/` as static assets and routes `/api/*` to `worker.js`.
+In the Cloudflare dashboard: Workers & Pages > Create > Import a repository > this repo,
+name `tfdiagram`, empty build command, deploy command `npx wrangler deploy`.
+Optional: `npx wrangler secret put GITHUB_TOKEN` to raise the shared GitHub API rate limit.
+Repos are limited to 45 `.tf` files per request (free plan subrequest limit).

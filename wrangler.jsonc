@@ -1,0 +1,11 @@
+// Cloudflare Worker: static page from ./public, API at /api/diagram (worker.js).
+// Optional secret GITHUB_TOKEN raises the GitHub API rate limit: `npx wrangler secret put GITHUB_TOKEN`.
+{
+  "name": "tfdiagram",
+  "main": "worker.js",
+  "compatibility_date": "2025-09-01",
+  "assets": {
+    "directory": "./public",
+    "run_worker_first": ["/api/*"]
+  }
+}
