@@ -126,3 +126,11 @@ test('aws categories: subnet groups, ACLs and defaults are not "Other"', async (
   const g = buildGraph([{ path: 'a.tf', content: 'resource "aws_network_acl" "n" {}\nresource "aws_network_acl_rule" "r" { network_acl_id = aws_network_acl.n.id }' }]);
   assert.deepEqual(g.nodes.map((n) => n.id), ['aws_network_acl.n']);
 });
+
+test('azure categories', async () => {
+  const { categoryOf } = await import('../lib/graph.js');
+  const want = { azurerm_route_table: 'Networking', azurerm_virtual_network_gateway: 'Networking', azurerm_api_management: 'Networking', azurerm_container_registry: 'Compute', azurerm_availability_set: 'Compute', azurerm_eventgrid_topic: 'Data', azurerm_user_assigned_identity: 'Security & IAM', azurerm_role_definition: 'Security & IAM' };
+  for (const [t, c] of Object.entries(want)) assert.equal(categoryOf(t, 'azure'), c, t);
+  const g = buildGraph([{ path: 'a.tf', content: 'resource "azurerm_subnet" "s" {}\nresource "azurerm_subnet_route_table_association" "a" { subnet_id = azurerm_subnet.s.id }' }], { provider: 'azure' });
+  assert.deepEqual(g.nodes.map((n) => n.id), ['azurerm_subnet.s']);
+});
