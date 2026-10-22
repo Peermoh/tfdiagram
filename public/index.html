@@ -34,6 +34,9 @@
   #panel th { color:var(--muted); font-weight:600; font-size:12px; text-transform:uppercase; letter-spacing:.04em; }
   #panel code { font-family:ui-monospace, monospace; } #panel .deny { color:#dc2626; font-weight:600; } #panel .tag { color:var(--muted); font-size:12px; }
   #panel #close { position:absolute; top:8px; right:10px; background:transparent; color:var(--fg); border:1px solid var(--line); padding:4px 10px; }
+  #backbar { position:sticky; top:0; z-index:8; display:flex; align-items:center; gap:12px; padding:8px 0; background:var(--bg); }
+  #backbar[hidden] { display:none; }
+  #backbar button { padding:8px 16px; } #backlabel { color:var(--muted); font-size:14px; }
   details { margin-top:16px; } pre { overflow:auto; background:rgba(128,128,128,.1); padding:12px; border-radius:6px; }
 </style>
 </head>
@@ -61,16 +64,16 @@
   <div id="view" hidden>
     <div id="tabs" class="tabs"></div>
     <div class="opts">
-      <input type="text" id="q" placeholder="Filter: name or type (e.g. subnet)" size="28">
+      <input type="search" id="q" placeholder="Filter: name or type (e.g. subnet)" size="28">
       <label>Module: <select id="scope"></select></label>
       <label><input type="checkbox" id="collapse"> Collapse modules</label>
       <label>Detail: <select id="detail"><option value="overview">Overview</option><option value="detailed">Every resource</option></select></label>
       <label>Direction: <select id="dir"><option value="LR">Left to right</option><option value="TB">Top to bottom</option></select></label>
-      <button type="button" id="back" hidden>← Back to overview</button>
       <label><input type="checkbox" id="fit"> Fit to width</label>
     </div>
   </div>
   <div id="legend" class="legend"></div>
+  <div id="backbar" hidden><button type="button" id="back">← Back</button><span id="backlabel"></span></div>
   <div id="out"></div>
   <details><summary>Mermaid source</summary><pre id="src"></pre></details>
   <div id="panel" hidden></div>
@@ -198,18 +201,34 @@ function showDetails(id) {
   $('close').addEventListener('click', () => { $('panel').hidden = true; });
 }
 
+// "Back" returns to exactly the view you came from (layer, module, filter text...), not to a blank one.
+const viewStack = [];
+const snapshot = () => ({ layer, q: $('q').value, detail: $('detail').value, scope: $('scope').value, collapse: $('collapse').checked });
+function restore(v) { layer = v.layer; $('q').value = v.q; $('detail').value = v.detail; $('scope').value = v.scope; $('collapse').checked = v.collapse; }
+function syncBack(label) {
+  $('backbar').hidden = viewStack.length === 0;
+  if (label) $('backlabel').textContent = label;
+}
+
 $('out').addEventListener('click', (e) => {
   const node = e.target.closest('[data-node]');
   if (node) { showDetails(node.dataset.node); return; }
   const card = e.target.closest('[data-expand]');
   if (!card) return;
+  viewStack.push(snapshot());
   $('q').value = card.dataset.expand + '.';
   $('detail').value = 'detailed';
-  $('back').hidden = false;
   $('panel').hidden = true;
+  syncBack(`Showing each ${friendlyType(card.dataset.expand).toLowerCase()}`);
   draw();
 });
-$('back').addEventListener('click', () => { $('q').value = ''; $('detail').value = 'overview'; $('back').hidden = true; draw(); });
+$('back').addEventListener('click', () => {
+  const v = viewStack.pop();
+  if (v) restore(v);
+  syncBack();
+  $('panel').hidden = true;
+  draw().then(() => $('backbar').scrollIntoView({ block: 'nearest' }));
+});
 for (const id of ['scope', 'collapse', 'dir', 'fit', 'detail']) $(id).addEventListener('change', draw);
 $('q').addEventListener('input', () => { clearTimeout($('q')._t); $('q')._t = setTimeout(draw, 250); });
 
@@ -229,7 +248,7 @@ async function run() {
     $('status').textContent = `${where}${data.graph.provider.toUpperCase()}: ${nodes.length} resources${mods ? `, ${mods} expanded modules` : ''}, ${edges.length} dependencies` + (data.truncated ? ' (repo tree truncated)' : '');
     if (!nodes.length) { $('view').hidden = true; $('out').textContent = 'No ' + data.graph.provider.toUpperCase() + ' resources found. Try the other cloud in the dropdown.'; return; }
     lastData = data;
-    layer = ''; $('q').value = ''; $('scope').value = ''; $('back').hidden = true; $('panel').hidden = true; 
+    layer = ''; $('q').value = ''; $('scope').value = ''; viewStack.length = 0; syncBack(); $('panel').hidden = true; 
     buildControls();
     await draw();
     if (mode() === 'repo') history.replaceState(null, '', '?repo=' + encodeURIComponent($('repo').value));
