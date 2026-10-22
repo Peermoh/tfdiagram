@@ -117,3 +117,12 @@ test('filterGraph: layers, neighbors, query, scope, collapse', async () => {
   assert.ok(col.edges.some((e) => e.from === 'aws_instance.web' && e.to === 'module.net'));
   assert.equal(col.nodes.find((n) => n.id === 'module.net').expanded, false);
 });
+
+test('aws categories: subnet groups, ACLs and defaults are not "Other"', async () => {
+  const { categoryOf } = await import('../lib/graph.js');
+  for (const t of ['aws_db_subnet_group', 'aws_network_acl', 'aws_default_route_table', 'aws_customer_gateway', 'aws_flow_log']) assert.equal(categoryOf(t), 'Networking', t);
+  assert.equal(categoryOf('aws_default_security_group'), 'Security & IAM');
+  assert.equal(categoryOf('aws_db_instance'), 'Data');
+  const g = buildGraph([{ path: 'a.tf', content: 'resource "aws_network_acl" "n" {}\nresource "aws_network_acl_rule" "r" { network_acl_id = aws_network_acl.n.id }' }]);
+  assert.deepEqual(g.nodes.map((n) => n.id), ['aws_network_acl.n']);
+});
