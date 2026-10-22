@@ -185,10 +185,34 @@ test('reduceEdges drops arrows already implied by a longer path', async () => {
   assert.equal(reduceEdges([e('a', 'b'), e('b', 'a')]).length, 2);
 });
 
-test('icons: aws and azure types map to sensible glyphs', async () => {
-  const { iconFor } = await import('../public/diagram.js');
-  const want = { aws_subnet: 'grid', aws_vpc: 'cloud', aws_instance: 'server', aws_lambda_function: 'lambda', aws_s3_bucket: 'bucket', aws_db_instance: 'database', aws_lb: 'balancer', aws_security_group: 'shield', aws_iam_role: 'lock', azurerm_virtual_network: 'cloud', azurerm_linux_virtual_machine: 'server', azurerm_storage_account: 'bucket', azurerm_key_vault: 'lock', azurerm_network_security_group: 'shield' };
-  for (const [t, i] of Object.entries(want)) assert.equal(iconFor(t), i, t);
+test('icons: every common service gets its own glyph and short code', async () => {
+  const { iconFor, abbrFor } = await import('../public/diagram.js');
+  const want = {
+    aws_vpc: ['cloud', 'VPC'], aws_subnet: ['grid', 'SUBN'], aws_internet_gateway: ['arch', 'IGW'], aws_nat_gateway: ['gateway', 'NAT'],
+    aws_route_table: ['route', 'RT'], aws_eip: ['pin', 'EIP'], aws_network_acl: ['filter', 'ACL'], aws_security_group: ['shield', 'SG'],
+    aws_instance: ['server', 'EC2'], aws_autoscaling_group: ['stack', 'ASG'], aws_lambda_function: ['lambda', 'FN'],
+    aws_s3_bucket: ['bucket', 'S3'], aws_db_instance: ['database', 'RDS'], aws_dynamodb_table: ['table', 'DDB'],
+    aws_elasticache_cluster: ['bolt', 'ECH'], aws_iam_role: ['user', 'IAM'], aws_kms_key: ['key', 'KMS'], aws_sqs_queue: ['message', 'SQS'],
+    aws_sns_topic: ['bell', 'SNS'], aws_lb: ['balancer', 'LB'], aws_lb_target_group: ['target', 'TG'], aws_eks_cluster: ['helm', 'EKS'],
+    aws_ecs_cluster: ['containers', 'ECS'], aws_ecr_repository: ['box', 'ECR'], aws_cloudfront_distribution: ['hub', 'CDN'],
+    aws_route53_zone: ['globe', 'R53'], aws_wafv2_web_acl: ['wall', 'WAF'], aws_acm_certificate: ['cert', 'ACM'], aws_flow_log: ['doc', 'FLOW'],
+    aws_db_subnet_group: ['grid', 'DBSG'], aws_vpc_endpoint: ['plug', 'VPCE'], aws_kinesis_stream: ['pulse', 'KIN'],
+    azurerm_virtual_network: ['cloud', 'VNET'], azurerm_linux_virtual_machine: ['server', 'VM'], azurerm_storage_account: ['bucket', 'STG'],
+    azurerm_key_vault: ['key', 'KV'], azurerm_network_security_group: ['shield', 'NSG'], azurerm_public_ip: ['pin', 'PIP'],
+    azurerm_network_interface: ['plug', 'NIC'], azurerm_kubernetes_cluster: ['helm', 'AKS'], azurerm_container_registry: ['box', 'ACR'],
+    azurerm_linux_web_app: ['window', 'APP'], azurerm_linux_function_app: ['lambda', 'FN'], azurerm_mssql_database: ['database', 'SQL'],
+    azurerm_cosmosdb_account: ['table', 'COS'], azurerm_redis_cache: ['bolt', 'REDI'], azurerm_servicebus_queue: ['message', 'SBQ'],
+    azurerm_resource_group: ['folder', 'RG'], azurerm_bastion_host: ['monitor', 'BAS'], azurerm_firewall: ['wall', 'FW'],
+    azurerm_user_assigned_identity: ['user', 'MI'], azurerm_log_analytics_workspace: ['doc', 'LAW'], azurerm_application_insights: ['chart', 'AI'],
+    azurerm_api_management: ['api', 'APIM'], azurerm_private_dns_zone: ['globe', 'DNS'], azurerm_virtual_network_gateway: ['arch', 'VPN'],
+    azurerm_eventhub_namespace: ['pulse', 'EH'], azurerm_lb: ['balancer', 'LB'], azurerm_application_gateway: ['balancer', 'AGW'],
+  };
+  for (const [t, [icon, code]] of Object.entries(want)) {
+    assert.equal(iconFor(t), icon, `${t} icon`);
+    assert.equal(abbrFor(t), code, `${t} code`);
+  }
+  assert.equal(abbrFor('aws_some_new_thing'), 'SNT');   // initials of "Some new thing"
+  assert.equal(iconFor('aws_totally_unknown'), 'cube');
 });
 
 test('labels: generic names fall back to the Name tag, then file:line', async () => {
@@ -218,6 +242,7 @@ test('friendly type names and plurals', async () => {
   assert.equal(friendlyType('aws_db_subnet_group'), 'DB subnet group');
   assert.equal(friendlyType('azurerm_linux_virtual_machine'), 'Linux VM');
   assert.equal(friendlyType('aws_ec2_thing_gateway'), 'EC2 thing gateway');
+  for (const [t, name] of Object.entries({ aws_kms_key: 'KMS key', aws_sqs_queue: 'SQS queue', aws_dynamodb_table: 'DynamoDB table', aws_eks_cluster: 'EKS cluster', aws_cloudfront_distribution: 'CloudFront distribution', aws_wafv2_web_acl: 'WAFv2 web ACL', aws_route53_zone: 'Route 53 zone', aws_opensearch_domain: 'OpenSearch domain' })) assert.equal(friendlyType(t), name);
   assert.equal(plural('Subnet'), 'Subnets');
   assert.equal(plural('Route table'), 'Route tables');
   assert.equal(plural('Network ACL'), 'Network ACLs');
@@ -229,8 +254,6 @@ test('friendly type names and plurals', async () => {
 test('azure: icons, friendly names and Azure resource names', async () => {
   const { iconFor } = await import('../public/diagram.js');
   const { friendlyType } = await import('../public/render.js');
-  const icons = { azurerm_resource_group: 'folder', azurerm_linux_web_app: 'window', azurerm_service_plan: 'window', azurerm_public_ip: 'gateway', azurerm_lb: 'balancer', azurerm_mssql_database: 'database', azurerm_bastion_host: 'shield', azurerm_log_analytics_workspace: 'doc', azurerm_kubernetes_cluster: 'cube', azurerm_linux_function_app: 'lambda', azurerm_servicebus_queue: 'message', azurerm_private_dns_zone: 'globe' };
-  for (const [t, i] of Object.entries(icons)) assert.equal(iconFor(t), i, t);
   assert.equal(friendlyType('azurerm_mssql_database'), 'SQL database');
   assert.equal(friendlyType('azurerm_linux_web_app'), 'Linux web app');
   assert.equal(friendlyType('azurerm_log_analytics_workspace'), 'Log Analytics workspace');
