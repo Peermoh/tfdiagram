@@ -36,6 +36,7 @@
   #panel h2 { margin:0 28px 2px 0; font-size:17px; } #panel .meta { color:var(--muted); font-size:13px; margin-bottom:10px; }
   #panel table { border-collapse:collapse; width:100%; font-size:14px; } #panel th, #panel td { text-align:left; padding:5px 10px 5px 0; border-bottom:1px solid var(--line); vertical-align:top; }
   #panel th { color:var(--muted); font-weight:600; font-size:12px; text-transform:uppercase; letter-spacing:.04em; }
+  pre.code { overflow:auto; max-height:480px; padding:10px 12px; border:1px solid var(--line); border-radius:6px; font:12.5px/1.45 ui-monospace, monospace; background:var(--bg); } pre.code .ln { color:var(--muted); display:inline-block; width:3.2em; text-align:right; padding-right:1em; user-select:none; } pre.code .hl { background:rgba(251,146,60,.18); display:block; }
   #panel code { font-family:ui-monospace, monospace; } #panel .deny { color:#dc2626; font-weight:600; } #panel .tag { color:var(--muted); font-size:12px; }
   #panel #close { position:absolute; top:8px; right:10px; background:transparent; color:var(--fg); border:1px solid var(--line); padding:4px 10px; }
   #backbar { position:sticky; top:0; z-index:8; display:flex; align-items:center; gap:12px; padding:8px 0; background:var(--bg); }
@@ -120,6 +121,9 @@
   <div id="legend" class="legend"></div>
   <div id="backbar" hidden><button type="button" id="back">← Back</button><span id="backlabel"></span></div>
   <div id="out"></div>
+  <details id="allcode" hidden><summary>Terraform code</summary>
+    <p class="opts"><label>File: <select id="codefile"></select></label></p>
+    <pre id="codeview" class="code"></pre></details>
   <details><summary>Mermaid source</summary><pre id="src"></pre></details>
   </div>
   <div id="panel" hidden></div>
@@ -200,12 +204,28 @@ async function draw() {
   try {
     const arch = $('style').value === 'arch';
     $('animLabel').hidden = !arch;
+    if (arch) { shownNodes = new Map(view.nodes.map((n) => [n.id, n])); shownEdges = layer || $('q').value ? null : view.edges; }   // tiles stand for single resources, so details open per resource
     if (arch) $('legend').innerHTML = '<span class="k"><b style="color:#e8710a">orange dashed arrows</b> traffic flow: from the internet and load balancers, through compute, to data stores (inferred from references in the code)</span><span class="k"><b>boxes</b> AWS Cloud / Azure, then VPC / virtual network, then subnet; green = public, blue = private (by name)</span><span class="k"><b>×N</b> several of that resource; click an icon for details</span>';
     $('out').innerHTML = arch ? renderArchitecture(view, { animate: $('anim').checked }) : renderDiagram(shownGraph, { direction: $('dir').value });
     const el = $('out').querySelector('svg');
     if ($('fit').checked && el) { el.removeAttribute('height'); el.style.width = '100%'; el.style.height = 'auto'; }
   } catch (e) { $('out').textContent = 'Could not draw this view: ' + e.message; }
 }
+
+function showAllCode(sources) {
+  const box = $('allcode');
+  box.hidden = !sources?.length;
+  if (box.hidden) return;
+  $('codefile').replaceChildren(new Option(`All files (${sources.length})`, ''), ...sources.map((f) => new Option(f.path, f.path)));
+  drawCode();
+}
+function drawCode() {
+  const want = $('codefile').value;
+  const files = (lastData?.sources ?? []).filter((f) => !want || f.path === want);
+  if (!want && files.reduce((t, f) => t + f.content.length, 0) > 200000) { $('codeview').textContent = 'Large project: pick a file above to view its code.'; return; }
+  $('codeview').innerHTML = files.map((f) => `${want ? '' : `<b>── ${H(f.path)} ──</b>\n`}${codeHtml(f.content)}`).join('\n');
+}
+$('codefile').addEventListener('change', drawCode);
 
 function showChecks(checks) {
   const box = $('checks');
@@ -243,6 +263,28 @@ function drawLegend(g) {
     '<span class="k"><b>dashed purple box</b> an expanded module</span>';
 }
 const H = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+// A resource's own block: from its first line to the brace that closes it.
+const blockRange = (text, line) => {
+  const lines = text.split('\n');
+  let depth = 0; let seen = false;
+  for (let i = line - 1; i < lines.length; i++) {
+    const t = lines[i].replace(/"(?:[^"\\]|\\.)*"/g, '""').replace(/(#|\/\/).*$/, '');
+    for (const c of t) { if (c === '{') { depth++; seen = true; } else if (c === '}') depth--; }
+    if (seen && depth <= 0) return [line, i + 1];
+  }
+  return [line, Math.min(lines.length, line + 40)];
+};
+const codeHtml = (text, from = 1, to = Infinity, mark) => text.split('\n').map((l, i) => [i + 1, l]).filter(([i]) => i >= from && i <= to)
+  .map(([i, l]) => `<span class="${mark && i >= mark[0] && i <= mark[1] ? 'hl' : ''}"><span class="ln">${i}</span>${H(l)}\n</span>`).join('');
+const fileText = (path) => lastData?.sources?.find((f) => f.path === path)?.content;
+function codeSection(n) {
+  const text = n.file && n.line ? fileText(n.file) : null;
+  if (!text) return '';
+  const [a, b] = blockRange(text, n.line);
+  return `<details open><summary>Code (${H(n.file)}:${a}-${b})</summary>
+    <pre class="code">${codeHtml(text, a, b)}</pre>
+    <p><button type="button" id="wholefile">Show whole file</button></p></details>`;
+}
 const sourceLink = (n) => {
   const { owner, repo, branch } = lastData;
   if (!owner || !n.file) return `${H(n.file ?? '')}${n.line ? `:${n.line}` : ''}`;
@@ -272,8 +314,14 @@ function showDetails(id) {
   const ranges = n.cidrs?.length ? `<p>IP range${n.cidrs.length > 1 ? 's' : ''}: ${n.cidrs.map((c) => `<code>${H(c)}</code>`).join(', ')}</p>` : '';
   const type = n.kind === 'module' ? 'Module' : friendlyType(n.type);
   $('panel').innerHTML = `<button id="close" type="button">✕</button><h2>${H(type)} · ${H(n.label ?? n.name)}</h2>
-    <div class="meta">${H(n.kind === 'module' ? `module.${n.name}` : `${n.type}.${n.name}`)} · ${sourceLink(n)}</div>${copies}${ranges}${body}${alone}`;
+    <div class="meta">${H(n.kind === 'module' ? `module.${n.name}` : `${n.type}.${n.name}`)} · ${sourceLink(n)}</div>${copies}${ranges}${body}${alone}${codeSection(n)}`;
   $('panel').hidden = false;
+  const wf = $('wholefile');
+  if (wf) wf.addEventListener('click', () => {
+    const text = fileText(n.file); const [a, b] = blockRange(text, n.line);
+    wf.parentElement.previousElementSibling.innerHTML = codeHtml(text, 1, Infinity, [a, b]);
+    wf.previousElementSibling; wf.remove();
+  });
   $('close').addEventListener('click', () => { $('panel').hidden = true; });
 }
 
@@ -374,7 +422,7 @@ $('results').addEventListener('click', (e) => {
   repoDirFor = ''; $('repodir').replaceChildren(); $('repodirLabel').hidden = true;
   $('repo').value = `https://github.com/${full}`;
   searchView = 'diagram'; applyView();              // only this repo's diagram is shown; the radio stays on Search GitHub
-  $('panel').hidden = true; $('view').hidden = true; $('checks').hidden = true; $('out').textContent = ''; $('legend').textContent = '';
+  $('panel').hidden = true; $('view').hidden = true; $('checks').hidden = true; $('out').textContent = ''; $('legend').textContent = ''; $('allcode').hidden = true;
   window.scrollTo({ top: 0 });
   run();
 });
@@ -413,7 +461,7 @@ async function loadZip(file) {
   } catch (e) {
     zipFiles = null;
     $('status').className = 'err'; $('status').textContent = e.message;
-    $('checks').hidden = true; $('view').hidden = true; $('out').textContent = ''; $('legend').textContent = '';   // don't leave the previous project on screen
+    $('checks').hidden = true; $('view').hidden = true; $('out').textContent = ''; $('legend').textContent = ''; $('allcode').hidden = true;   // don't leave the previous project on screen
   }
 }
 $('zip').addEventListener('change', (e) => { const f = e.target.files[0]; if (f) loadZip(f); });
@@ -438,6 +486,8 @@ async function run() {
     if (mine !== runSeq) return;                      // you went Back while it was loading
     if (!res.ok) throw new Error(data.error);
     showChecks(data.checks);
+    lastData = data;
+    showAllCode(data.sources);
     const { edges } = data.graph;
     const nodes = data.graph.nodes.filter((n) => n.kind !== 'module' || !n.expanded);
     const mods = data.graph.nodes.filter((n) => n.kind === 'module' && n.expanded).length;
