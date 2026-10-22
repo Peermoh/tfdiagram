@@ -1063,3 +1063,19 @@ test('architecture view nests resources in their subnet and VPC and draws traffi
   assert.equal((svg.match(/class="flow"/g) ?? []).length, 2);        // Internet -> load balancer -> instances
   assert.ok(!renderArchitecture(g, { animate: false }).includes('class="arch"'));
 });
+
+test('"All folders" draws every folder as a module box', async () => {
+  const { handleApi } = await import('../lib/api.js');
+  const files = [
+    { path: 'envs/dev/main.tf', content: 'resource "aws_vpc" "v" {}' },
+    { path: 'envs/prod/main.tf', content: 'resource "aws_s3_bucket" "b" {}' },
+    { path: 'modules/net/main.tf', content: 'resource "aws_subnet" "s" {}' },
+  ];
+  const res = await handleApi(new Request('http://x/api/diagram', { method: 'POST', body: JSON.stringify({ files, root: '*' }) }));
+  const data = await res.json();
+  assert.equal(res.status, 200);
+  assert.deepEqual(data.graph.nodes.filter((n) => n.kind === 'module').map((n) => n.name).sort(), ['envs_dev', 'envs_prod', 'modules_net']);
+  assert.ok(data.graph.nodes.some((n) => n.id === 'module.envs_dev.aws_vpc.v' && n.parent === 'module.envs_dev'));
+  assert.ok(data.sources.every((f) => !f.path.startsWith('(')));
+  assert.match(data.checks[0].text, /3 folders at once/);
+});

@@ -505,14 +505,14 @@ async function run() {
     const where = data.owner ? `${data.owner}/${data.repo}@${data.branch}${data.root ? `/${data.root}` : ''}: ${data.fileCount} files, ` : data.dirs ? `zip: ${data.fileCount} files, folder ${data.root || '(top level)'}: ` : '';
     if (m === 'repo' && data.dirs && repoDirFor !== $('repo').value) {   // folders in this repository that hold Terraform
       const depth = (d) => (d ? d.split('/').length : 0);
-      $('repodir').replaceChildren(...[...data.dirs].sort((a, b) => depth(a.dir) - depth(b.dir) || a.dir.localeCompare(b.dir)).map((d) => new Option(`${d.dir || '(top level)'}  ·  ${d.count} file${d.count === 1 ? '' : 's'}`, d.dir)));
-      $('repodir').value = data.root; repoDirFor = $('repo').value;
+      $('repodir').replaceChildren(new Option('★ All folders (each drawn as a module)', '*'), ...[...data.dirs].sort((a, b) => depth(a.dir) - depth(b.dir) || a.dir.localeCompare(b.dir)).map((d) => new Option(`${d.dir || '(top level)'}  ·  ${d.count} file${d.count === 1 ? '' : 's'}`, d.dir)));
+      $('repodir').value = data.root ?? ''; repoDirFor = $('repo').value;
       $('repodirLabel').hidden = data.dirs.length < 2;
     }
     if (m === 'repo' && data.root !== undefined && !(data.dirs?.length > 1)) $('repodirLabel').hidden = true;
     if (data.dirs && m === 'zip' && !$('zipdir').options.length) {
       const depth = (d) => (d ? d.split('/').length : 0);
-      $('zipdir').replaceChildren(...[...data.dirs].sort((a, b) => depth(a.dir) - depth(b.dir) || a.dir.localeCompare(b.dir)).map((d) => new Option(`${d.dir || '(top level)'}  ·  ${d.count} file${d.count === 1 ? '' : 's'}`, d.dir)));
+      $('zipdir').replaceChildren(new Option('★ All folders (each drawn as a module)', '*'), ...[...data.dirs].sort((a, b) => depth(a.dir) - depth(b.dir) || a.dir.localeCompare(b.dir)).map((d) => new Option(`${d.dir || '(top level)'}  ·  ${d.count} file${d.count === 1 ? '' : 's'}`, d.dir)));
       $('zipdir').value = data.root;
       $('zipdirLabel').hidden = data.dirs.length < 2;
     }
