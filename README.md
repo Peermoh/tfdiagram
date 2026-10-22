@@ -21,3 +21,7 @@ Paste `.tf` code or give a GitHub URL; pick AWS, Azure, or auto-detect.
 
 ## Not yet
 Cloud icons, `count`/`for_each` expansion, registry module internals, GCP, plan diffs.
+
+## Deploy
+Render (free tier): New + > Blueprint > pick this repo; `render.yaml` and the `Dockerfile` do the rest.
+Any Docker host works too (Fly.io, Railway, Cloud Run): the container listens on `$PORT`.

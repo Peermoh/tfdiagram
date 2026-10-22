@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: tfdiagram
+    runtime: docker
+    plan: free
+    healthCheckPath: /
