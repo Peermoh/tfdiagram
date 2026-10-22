@@ -28,6 +28,18 @@ const AZ = [
   'Azure_Public_Service_Icons/Icons/containers/10023-icon-service-Kubernetes-Services.svg',
 ];
 
+test('plural file names reduce to singular words', () => {
+  assert.deepEqual(tokens('10069-icon-service-Public-IP-Addresses.svg'), ['public', 'ip', 'address']);
+  assert.deepEqual(tokens('10105-icon-service-Container-Registries.svg'), ['container', 'registry']);
+  assert.deepEqual(tokens('10227-icon-service-Managed-Identities.svg'), ['managed', 'identity']);
+  assert.deepEqual(tokens('10032-icon-service-Disks.svg'), ['disk']);
+});
+
+test('classic (retired) service icons are never picked', () => {
+  const r = matchIcons(['a/10028-icon-service-Virtual-Machines-(Classic).svg', 'a/10021-icon-service-Virtual-Machine.svg'], [[['azurerm_virtual_machine'], ['virtual machine']]]);
+  assert.match(r.azurerm_virtual_machine, /10021-icon-service-Virtual-Machine\.svg$/);
+});
+
 test('file names are reduced to comparable words', () => {
   assert.deepEqual(tokens('x/Arch_Amazon-Simple-Storage-Service_64.svg'), ['amazon', 'simple', 'storage', 'service']);
   assert.deepEqual(tokens('x/10061-icon-service-Virtual-Networks.svg'), ['virtual', 'network']);

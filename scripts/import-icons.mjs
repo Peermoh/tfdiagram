@@ -74,7 +74,7 @@ const AZURE = [
   [['azurerm_availability_set'], ['availability set']],
   [['azurerm_managed_disk'], ['disk']],
   [['azurerm_kubernetes_cluster'], ['kubernetes service']],
-  [['azurerm_container_registry'], ['container registrie', 'container registry']],
+  [['azurerm_container_registry'], ['container registry']],
   [['azurerm_container_app'], ['container app']],
   [['azurerm_container_group'], ['container instance']],
   [['azurerm_service_plan'], ['app service plan']],
@@ -91,13 +91,18 @@ const AZURE = [
   [['azurerm_log_analytics_workspace'], ['log analytics workspace']],
   [['azurerm_application_insights'], ['application insights']],
   [['azurerm_api_management'], ['api management service']],
-  [['azurerm_user_assigned_identity'], ['managed identitie', 'managed identity']],
+  [['azurerm_user_assigned_identity'], ['managed identity']],
   [['azurerm_resource_group'], ['resource group']],
   [['azurerm_traffic_manager_profile'], ['traffic manager profile']],
   [['azurerm_cdn_profile'], ['cdn profile']],
 ];
 
-const stem = (w) => (w.length > 3 && w.endsWith('s') && !w.endsWith('ss') ? w.slice(0, -1) : w);
+// singular form, so "Public-IP-Addresses" matches "public ip address" and "Registries" matches "registry"
+const stem = (w) => {
+  if (w.length > 4 && w.endsWith('ies')) return `${w.slice(0, -3)}y`;
+  if (w.length > 4 && w.endsWith('sses')) return w.slice(0, -2);
+  return w.length > 3 && w.endsWith('s') && !w.endsWith('ss') ? w.slice(0, -1) : w;
+};
 
 // "Arch_Amazon-Simple-Storage-Service_64.svg" -> ['amazon','simple','storage','service']
 export function tokens(file) {
@@ -112,8 +117,8 @@ const sizeOf = (file) => Number(/_(\d+)\.svg$/i.exec(file)?.[1] ?? /[\\/](\d+)[\
 // Picks, for each terraform type, the best-named file. Returns { type: file }.
 export function matchIcons(files, table) {
   const usable = files
-    // skip macOS zip junk (__MACOSX/, ._files), category/group icons and dark-background variants
-    .filter((f) => /\.svg$/i.test(f) && !/__MACOSX|[\\/]\._|category|dark|(^|[^a-z])bg-dark/i.test(f))
+    // skip macOS zip junk (__MACOSX/, ._files), category/group icons, classic (retired) services and dark-background variants
+    .filter((f) => /\.svg$/i.test(f) && !/__MACOSX|[\\/]\._|category|dark|classic|(^|[^a-z])bg-dark/i.test(f))
     .map((f) => ({ file: f, toks: tokens(f), size: sizeOf(f), res: /^res[_-]/i.test(basename(f)) }));
   const out = {};
   for (const [types, phrases] of table) {
