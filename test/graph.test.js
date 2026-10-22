@@ -1079,3 +1079,17 @@ test('"All folders" draws every folder as a module box', async () => {
   assert.ok(data.sources.every((f) => !f.path.startsWith('(')));
   assert.match(data.checks[0].text, /3 folders at once/);
 });
+
+test('terraform.tfvars next to the drawn folder overrides variable defaults', async () => {
+  const { handleApi } = await import('../lib/api.js');
+  const files = [
+    { path: 'main.tf', content: 'variable "on" { default = false }\nvariable "n" { default = 1 }\nresource "aws_instance" "a" {\n  count = var.on ? var.n : 0\n}' },
+    { path: 'terraform.tfvars', content: 'on = true\nn  = 3\n' },
+  ];
+  const post = (body) => handleApi(new Request('http://x/api/diagram', { method: 'POST', body: JSON.stringify(body) })).then((r) => r.json());
+  const withVars = await post({ files });
+  assert.equal(withVars.graph.nodes.find((n) => n.id === 'aws_instance.a')?.instances, 3);
+  assert.equal(withVars.tfvarsApplied, true);
+  const without = await post({ files: files.slice(0, 1) });
+  assert.equal(without.graph.nodes.length, 0);
+});

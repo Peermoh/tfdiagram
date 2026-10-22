@@ -5,10 +5,13 @@ const EOCD = 0x06054b50;
 const CENTRAL = 0x02014b50;
 const LOCAL = 0x04034b50;
 
+// variable files Terraform loads on its own (other .tfvars need -var-file, so they are not applied)
+export const VARS = /(^|\/)(terraform|[^/]+\.auto)\.tfvars$/i;
+
 // virtual path inside the zip, or null if it is not a Terraform source file we should read
 export function wantedPath(name) {
   const path = name.replace(/\\/g, '/').replace(/^(\.\/|\/)+/, '');
-  if (!/\.tf$/i.test(path) || path.endsWith('/')) return null;
+  if (!(/\.tf$/i.test(path) || VARS.test(path)) || path.endsWith('/')) return null;
   const parts = path.split('/');
   if (parts.some((p) => p === '..' || p === '.terraform' || p === '.git' || p === '__MACOSX' || p.startsWith('._'))) return null;
   return path;
