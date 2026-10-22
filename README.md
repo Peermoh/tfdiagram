@@ -1,3 +1,5 @@
+<img src="public/logo.svg" alt="" width="64" align="left"> 
+
 # TFDiagram
 
 Paste a GitHub repo URL containing Terraform (AWS or Azure) and get an architecture diagram.

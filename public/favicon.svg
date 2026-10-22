@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="TFDiagram logo">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1e293b"/>
+      <stop offset="1" stop-color="#0b1120"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="url(#bg)"/>
+  <!-- right-angle arrows, like the diagrams -->
+  <g fill="none" stroke="#cbd5e1" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M23 32H32V18H40"/>
+    <path d="M32 32V46H40"/>
+    <path d="M36.5 14.5L40 18L36.5 21.5"/>
+    <path d="M36.5 42.5L40 46L36.5 49.5"/>
+  </g>
+  <!-- three resources, in the layer colours -->
+  <rect x="8" y="25" width="15" height="14" rx="4" fill="#3b82f6"/>
+  <rect x="41" y="10" width="15" height="14" rx="4" fill="#22c55e"/>
+  <rect x="41" y="39" width="15" height="14" rx="4" fill="#f59e0b"/>
+</svg>

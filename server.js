@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { handleApi, handleSearch } from './lib/api.js';
 
 const PUBLIC = join(fileURLToPath(new URL('.', import.meta.url)), 'public');
-const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml' };
+const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png' };
 const PORT = process.env.PORT ?? 3000;
 
 http.createServer(async (req, res) => {

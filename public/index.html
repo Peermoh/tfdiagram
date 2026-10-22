@@ -4,13 +4,17 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>TFDiagram</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#0b1120">
 <style>
   :root { --bg:#fff; --fg:#1a1a1a; --muted:#666; --line:#d8d8d8; --accent:#c2410c; --card:#fff; --edge:#64748b; }
   @media (prefers-color-scheme: dark) { :root { --bg:#111; --fg:#eee; --muted:#999; --line:#333; --accent:#fb923c; --card:#1b1b1b; --edge:#94a3b8; } }
   * { box-sizing: border-box; }
   body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.5 system-ui, sans-serif; }
   main { max-width: 1100px; margin: 0 auto; padding: 32px 16px; }
-  h1 { margin: 0 0 4px; } p.sub { margin: 0 0 24px; color: var(--muted); }
+  h1 { margin: 0 0 4px; }
+  h1.brand { display:flex; align-items:center; gap:12px; } h1.brand img { border-radius:10px; flex:none; } p.sub { margin: 0 0 24px; color: var(--muted); }
   form { display:flex; gap:8px; flex-wrap:wrap; }
   input[type=text], input[type=password] { flex:1 1 280px; padding:10px 12px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--fg); font:inherit; }
   textarea { flex:1 1 100%; padding:10px 12px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--fg); font:13px/1.4 ui-monospace, monospace; }
@@ -56,7 +60,7 @@
 </head>
 <body>
 <main>
-  <h1>TFDiagram</h1>
+  <h1 class="brand"><img src="logo.svg" alt="" width="44" height="44"><span>TFDiagram</span></h1>
   <p class="sub">Paste Terraform code or a GitHub repo URL (AWS or Azure) and get an architecture diagram.</p>
   <div class="opts">
     <label><input type="radio" name="mode" value="paste" checked> Paste code</label>
