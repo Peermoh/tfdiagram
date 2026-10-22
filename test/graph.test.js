@@ -971,3 +971,58 @@ test('an argument nobody uses inside the module, or an output it cannot follow, 
   } });
   assert.ok(g.edges.some((e) => e.from === 'module.b' && e.to === 'module.a' && !e.ordering), 'falls back to module -> module');
 });
+
+test('object attributes, concat() lengths and try() sizes are evaluated (terraform-aws-backup pattern)', async () => {
+  const { simplify, reduceAttrAccess, evalNum } = await import('../lib/details.js');
+  const { listLength } = await import('../lib/cidr.js');
+  assert.equal(reduceAttrAccess('( { create = false\n name = null } ).create'), 'false');
+  assert.equal(reduceAttrAccess('({ a = 1 }).missing'), 'null');
+  assert.equal(reduceAttrAccess('f(x).y'), 'f(x).y');                              // not an object literal: left alone
+  assert.equal(simplify('( { create = false\n name = null } ).create ? 1 : 0'), '0');
+  assert.equal(listLength('concat([], [])'), 0);
+  assert.equal(listLength('concat((x == null ? [] : [1]), ([]))'.replace('x == null', 'null == null')), 0);
+  assert.equal(listLength('concat([1], [2, 3])'), 3);
+  assert.equal(listLength('try(tomap([]), { for k, v in try(tolist([]), []) : k => v })'), 0);
+  assert.equal(listLength('flatten([for k, v in {} : [k]])'), 0);
+  assert.equal(evalNum('length(concat([], [])) + 1'), 1);
+
+  const g = buildGraph([{ path: 'b.tf', content: `
+    variable "enabled" { default = true }
+    variable "plans" {
+      type = map(object({ name = optional(string) }))
+      default = {}
+    }
+    variable "rule_name" { default = null }
+    variable "rules" {
+      type = list(object({ name = string }))
+      default = []
+    }
+    variable "audit_framework" {
+      type = object({ create = bool, name = optional(string) })
+      default = {
+        create = false
+        name   = null
+      }
+    }
+    locals {
+      rule  = var.rule_name == null ? [] : [{ name = var.rule_name }]
+      rules = concat(local.rule, var.rules)
+      legacy = var.enabled && length(var.plans) == 0 && length(local.rules) > 0
+    }
+    resource "aws_backup_plan" "legacy" { count = local.legacy ? 1 : 0 }
+    resource "aws_backup_framework" "fw" { count = var.audit_framework.create ? 1 : 0 }
+    resource "aws_backup_vault" "v" { count = var.enabled ? 1 : 0 }` }]);
+  assert.deepEqual(g.nodes.map((n) => n.id), ['aws_backup_vault.v']);
+  assert.deepEqual(g.inactive.sort(), ['aws_backup_framework.fw', 'aws_backup_plan.legacy']);
+  assert.equal(g.nodes[0].category, 'Data');                                        // backup resources sit with storage
+});
+
+test('checks: helper providers (random, null) are not "other clouds"; unsure counts are listed', async () => {
+  const { validateProject } = await import('../lib/validate.js');
+  const files = [{ path: 'a.tf', content: 'resource "aws_vpc" "v" {}\nresource "random_string" "r" {}\nresource "null_resource" "n" {}\nresource "aws_instance" "i" {\n  count = length(var.unknown)\n}' }];
+  const tree = { dir: '', files, children: {} };
+  const graph = buildGraph(tree);
+  const checks = validateProject({ files, root: '', tree, graph, source: 'github' });
+  assert.ok(!checks.some((c) => /other providers/.test(c.text)));
+  assert.ok(checks.some((c) => c.level === 'info' && /could not be worked out \(instance i\)/.test(c.text)), checks.map((c) => c.text).join(' | '));
+});
