@@ -45,6 +45,7 @@
   #checks .error { color:#dc2626; font-weight:600; } #checks summary { cursor:pointer; color:var(--muted); }
   #sq { width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--fg); font:inherit; }
   #searchbox { flex:1 1 100%; } .hit { border:1px solid var(--line); border-radius:8px; padding:12px 14px; margin:10px 0; }
+  #sclear { background:transparent; color:var(--fg); border:1px solid var(--line); padding:6px 12px; font-size:14px; }
   .hit h3 { margin:0 0 4px; font-size:16px; } .hit p { margin:4px 0 8px; color:var(--muted); } .hit .meta { font-size:13px; color:var(--muted); }
   .hit .topics span { display:inline-block; border:1px solid var(--line); border-radius:10px; padding:0 8px; margin:0 6px 4px 0; font-size:12px; color:var(--muted); }
   #tosearch { margin:0 0 8px; background:transparent; color:var(--fg); border:1px solid var(--line); padding:6px 12px; font-size:14px; }
@@ -78,6 +79,7 @@
         <label><input type="checkbox" id="shcl" checked> Only Terraform repos (language HCL)</label>
       </div>
       <p class="tag">Finds public repositories on GitHub. Press <b>Draw diagram</b> on a result to open it here. Use GitHub's search words too, like <code>org:hashicorp</code> or <code>user:name</code>.</p>
+      <p id="sclearbar" hidden><button type="button" id="sclear">✕ Clear search</button></p>
       <div id="results"></div>
     </div>
     <div id="zipbox" hidden>
@@ -316,12 +318,29 @@ async function search(page) {
     if (page === 1) box.replaceChildren();
     box.querySelector('.more')?.remove();
     box.insertAdjacentHTML('beforeend', data.items.map(hitHtml).join(''));
+    $('sclearbar').hidden = false;
     if (data.hasMore) box.insertAdjacentHTML('beforeend', '<p class="more"><button type="button" id="more">Show more</button></p>');
     $('status').textContent = data.total ? `${fmt.format(data.total)} repositor${data.total === 1 ? 'y' : 'ies'} found${data.total > 1000 ? ' (GitHub shows the first 1,000)' : ''}` : 'No repositories found. Try other words, or untick "Only Terraform repos".';
   } catch (e) {
     $('status').className = 'err'; $('status').textContent = e.message;
   } finally { $('go').disabled = false; }
 }
+// Clear: empties the search box and the results, forgets any search still on its way, and hides "back to results".
+function clearSearch() {
+  searchSeq++;                                  // an answer that arrives later is ignored
+  searchPage = 1;
+  $('sq').value = '';
+  $('results').replaceChildren();
+  $('sclearbar').hidden = true;
+  $('tosearch').hidden = true;
+  $('go').disabled = false;
+  $('status').className = ''; $('status').textContent = '';
+  $('sq').focus();
+}
+$('sclear').addEventListener('click', clearSearch);
+$('sq').addEventListener('search', () => { if (!$('sq').value) clearSearch(); });   // the ✕ inside the search box
+$('sq').addEventListener('keydown', (e) => { if (e.key === 'Escape') clearSearch(); });
+
 $('results').addEventListener('click', (e) => {
   if (e.target.id === 'more') { search(searchPage + 1); return; }
   const full = e.target.dataset?.draw;
