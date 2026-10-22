@@ -1,5 +1,33 @@
 // Shared by the browser (diagram filtering + Mermaid output) and the tests.
 
+const FRIENDLY = {
+  vpc: 'VPC', subnet: 'Subnet', network_acl: 'Network ACL', route_table: 'Route table', route: 'Route',
+  nat_gateway: 'NAT gateway', internet_gateway: 'Internet gateway', egress_only_internet_gateway: 'Egress-only gateway',
+  eip: 'Elastic IP', vpn_gateway: 'VPN gateway', customer_gateway: 'Customer gateway', flow_log: 'Flow log',
+  db_subnet_group: 'DB subnet group', redshift_subnet_group: 'Redshift subnet group', elasticache_subnet_group: 'ElastiCache subnet group',
+  default_vpc: 'Default VPC', default_network_acl: 'Default network ACL', default_route_table: 'Default route table', default_security_group: 'Default security group',
+  vpc_dhcp_options: 'DHCP options', security_group: 'Security group', iam_role: 'IAM role', iam_policy: 'IAM policy', instance: 'EC2 instance',
+  s3_bucket: 'S3 bucket', db_instance: 'RDS database', lambda_function: 'Lambda function', lb: 'Load balancer', alb: 'Load balancer',
+  virtual_network: 'Virtual network', linux_virtual_machine: 'Linux VM', windows_virtual_machine: 'Windows VM', storage_account: 'Storage account',
+  key_vault: 'Key vault', network_security_group: 'Network security group', public_ip: 'Public IP', network_interface: 'Network interface',
+  resource_group: 'Resource group', mssql_server: 'SQL server', kubernetes_cluster: 'AKS cluster',
+};
+const ACRONYMS = { vpc: 'VPC', acl: 'ACL', nat: 'NAT', vpn: 'VPN', db: 'DB', rds: 'RDS', ec2: 'EC2', iam: 'IAM', s3: 'S3', ip: 'IP', dns: 'DNS', sql: 'SQL', vm: 'VM', lb: 'LB', eip: 'EIP' };
+
+// "network_acl" -> "Network ACL"; unknown types are spelled out ("db_subnet_group" -> "DB subnet group").
+export function friendlyType(type) {
+  const t = String(type).replace(/^(aws_|azurerm_)/, '');
+  if (FRIENDLY[t]) return FRIENDLY[t];
+  const words = t.split('_').map((w) => ACRONYMS[w] ?? w);
+  return words[0][0].toUpperCase() + words[0].slice(1) + (words.length > 1 ? ' ' + words.slice(1).join(' ') : '');
+}
+
+export function plural(word) {
+  if (/(s|x|ch|sh)$/i.test(word)) return word + 'es';
+  if (/[^aeiou]y$/i.test(word)) return word.slice(0, -1) + 'ies';
+  return word + 's';
+}
+
 const isContainer = (n) => n.kind === 'module' && n.expanded;
 
 // opts: { scope: id of an expanded module to zoom into, collapse: fold expanded modules into one node,
@@ -37,7 +65,7 @@ export function filterGraph(graph, { scope = '', collapse = false, layers = null
   const q = query.trim().toLowerCase();
   if (layers || q) {
     const leaves = nodes.filter((n) => !isContainer(n));
-    const core = new Set(leaves.filter((n) => (!layers || layers.has(n.category)) && (!q || `${n.type} ${n.name} ${n.id}`.toLowerCase().includes(q))).map((n) => n.id));
+    const core = new Set(leaves.filter((n) => (!layers || layers.has(n.category)) && (!q || `${n.type} ${n.name} ${n.label ?? ''} ${n.id}`.toLowerCase().includes(q))).map((n) => n.id));
     const ghost = new Set();
     const ghostModules = new Set(); // modules linked to a match are shown as single dimmed boxes
     if (neighbors) {
@@ -97,11 +125,11 @@ export function summarize(graph) {
     const id = `${n.parent}::${n.type}`;
     groupOf.set(n.id, id);
     if (!groups.has(id)) {
-      groups.set(id, { id, kind: 'group', type: n.type, category: n.category, parent: n.parent, file: n.file, names: [], ghost: true, count: 0 });
+      groups.set(id, { id, kind: 'group', type: n.type, category: n.category, parent: n.parent, file: n.file, line: n.line, names: [], ghost: true, count: 0 });
       nodes.push(groups.get(id));
     }
     const g = groups.get(id);
-    g.names.push(n.name);
+    g.names.push(n.label ?? n.name);
     g.count++;
     g.ghost = g.ghost && Boolean(n.ghost); // dimmed only if every member is
   }

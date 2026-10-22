@@ -188,3 +188,38 @@ test('icons: aws and azure types map to sensible glyphs', async () => {
   const want = { aws_subnet: 'grid', aws_vpc: 'cloud', aws_instance: 'server', aws_lambda_function: 'lambda', aws_s3_bucket: 'bucket', aws_db_instance: 'database', aws_lb: 'balancer', aws_security_group: 'shield', aws_iam_role: 'lock', azurerm_virtual_network: 'cloud', azurerm_linux_virtual_machine: 'server', azurerm_storage_account: 'bucket', azurerm_key_vault: 'lock', azurerm_network_security_group: 'shield' };
   for (const [t, i] of Object.entries(want)) assert.equal(iconFor(t), i, t);
 });
+
+test('labels: generic names fall back to the Name tag, then file:line', async () => {
+  const { parseTerraform } = await import('../lib/parse.js');
+  const src = `# header comment
+/* block
+   comment */
+resource "aws_vpc" "this" {
+  tags = { "Name" = "\${var.name}-vpc" }
+}
+
+resource "aws_s3_bucket" "this" {}
+resource "aws_subnet" "public" {
+  tags = { Name = "pub" }
+}`;
+  assert.deepEqual(parseTerraform(src).map((b) => b.line), [4, 8, 9]);
+  const g = buildGraph([{ path: 'infra/main.tf', content: src }]);
+  const label = (id) => g.nodes.find((n) => n.id === id).label;
+  assert.equal(label('aws_vpc.this'), '{name}-vpc');
+  assert.equal(label('aws_s3_bucket.this'), 'main.tf:8');
+  assert.equal(label('aws_subnet.public'), 'public');
+});
+
+test('friendly type names and plurals', async () => {
+  const { friendlyType, plural } = await import('../public/render.js');
+  assert.equal(friendlyType('aws_network_acl'), 'Network ACL');
+  assert.equal(friendlyType('aws_db_subnet_group'), 'DB subnet group');
+  assert.equal(friendlyType('azurerm_linux_virtual_machine'), 'Linux VM');
+  assert.equal(friendlyType('aws_ec2_thing_gateway'), 'EC2 thing gateway');
+  assert.equal(plural('Subnet'), 'Subnets');
+  assert.equal(plural('Route table'), 'Route tables');
+  assert.equal(plural('Network ACL'), 'Network ACLs');
+  assert.equal(plural('Security group'), 'Security groups');
+  assert.equal(plural('Policy'), 'Policies');
+  assert.equal(plural('Access'), 'Accesses');
+});

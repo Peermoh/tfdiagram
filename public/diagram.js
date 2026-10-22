@@ -1,6 +1,6 @@
 // Draws a filtered graph as an SVG: cards with icons, orthogonal arrows, modules as dashed containers.
 // Layout comes from dagre (public/vendor/dagre.min.js, loaded as a global).
-import { COLORS, reduceEdges } from './render.js';
+import { COLORS, friendlyType, plural, reduceEdges } from './render.js';
 
 const W = 214;
 const H = 60;
@@ -136,18 +136,23 @@ export function renderDiagram(graph, { direction = 'LR', link = null } = {}) {
     const x = b.x - b.cw / 2;
     const y = b.y - b.ch / 2;
     const h = b.ch;
-    const title = b.hdr ? `module.${n.name}` : n.kind === 'group' ? `${n.type.replace(/^(aws_|azurerm_)/, '')}${n.count > 1 ? ` ×${n.count}` : ''}` : n.kind === 'module' ? `module.${n.name}` : n.type.replace(/^(aws_|azurerm_)/, '');
-    const names = b.hdr ? (n.source ?? '') : n.kind === 'group' ? (n.names.length > 3 ? `${n.names.slice(0, 3).join(', ')} +${n.names.length - 3}` : n.names.join(', ')) : n.kind === 'module' ? (n.source ?? '') : n.name;
-    const full = n.kind === 'group' ? `${title}: ${n.names.join(', ')}` : `${title} ${names}`;
+    const grouped = n.kind === 'group' && n.count > 1;
+    const kind = friendlyType(n.type);
+    const title = b.hdr ? `module.${n.name}` : n.kind === 'module' ? `module.${n.name}` : grouped ? plural(kind) : kind;
+    const label = n.label ?? n.name;
+    const names = b.hdr || n.kind === 'module' ? (n.source ?? '') : n.kind === 'group' ? (n.names.length > 3 ? `${n.names.slice(0, 3).join(', ')} +${n.names.length - 3}` : n.names.join(', ')) : label;
+    const full = grouped ? `${n.count} ${plural(kind).toLowerCase()}: ${n.names.join(', ')}. Click to see each one.` : n.kind === 'group' || n.kind === 'resource' ? `${kind} "${label}" (${n.type}${n.kind === 'resource' ? `.${n.name}` : ''})` : title;
     const icon = b.hdr || n.kind === 'module' ? 'cube' : iconFor(n.type);
-    const href = link && n.file ? `https://github.com/${link.owner}/${link.repo}/blob/${link.branch}/${n.file.split('/').map(encodeURIComponent).join('/')}` : null;
-    const card = `<g transform="translate(${x} ${y})"${n.ghost ? ' opacity="0.5"' : ''}>
+    const href = !grouped && link && n.file ? `https://github.com/${link.owner}/${link.repo}/blob/${link.branch}/${n.file.split('/').map(encodeURIComponent).join('/')}${n.line ? `#L${n.line}` : ''}` : null;
+    const badge = grouped ? `<circle cx="${b.cw}" cy="0" r="12" fill="${color}" stroke="var(--card)" stroke-width="2.5"/><text x="${b.cw}" y="4.5" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">${n.count}</text>` : '';
+    const card = `<g transform="translate(${x} ${y})"${n.ghost ? ' opacity="0.5"' : ''}${grouped ? ` data-expand="${esc(n.type)}" style="cursor:pointer"` : ''}>
 <title>${esc(full)}</title>
 <rect width="${b.cw}" height="${h}" rx="9" fill="var(--card)" stroke="${color}" stroke-width="1.6"${n.ghost ? ' stroke-dasharray="5 4"' : ''}/>
 <rect x="1" y="1" width="46" height="${h - 2}" rx="8" fill="${color}"/><rect x="30" y="1" width="17" height="${h - 2}" fill="${color}"/>
 <g transform="translate(11 ${h / 2 - 12})" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${glyph(icon)}</g>
 <text x="58" y="${h / 2 - 3}" font-size="13" font-weight="700" fill="var(--fg)">${esc(clip(title, 22))}</text>
 <text x="58" y="${h / 2 + 14}" font-size="12" fill="var(--muted)">${esc(clip(names, 26))}</text>
+${badge}
 </g>`;
     out.push(href ? `<a href="${esc(href)}" target="_blank" rel="noopener" style="cursor:pointer">${card}</a>` : card);
   }

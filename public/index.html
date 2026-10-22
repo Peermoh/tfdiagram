@@ -59,6 +59,7 @@
       <label><input type="checkbox" id="collapse"> Collapse modules</label>
       <label>Detail: <select id="detail"><option value="overview">Overview</option><option value="detailed">Every resource</option></select></label>
       <label>Direction: <select id="dir"><option value="LR">Left to right</option><option value="TB">Top to bottom</option></select></label>
+      <button type="button" id="back" hidden>← Back to overview</button>
       <label><input type="checkbox" id="fit"> Fit to width</label>
     </div>
   </div>
@@ -137,10 +138,20 @@ function drawLegend(g) {
   const key = (c) => `<span class="k"><i style="background:${COLORS[c] ?? COLORS.Other}"></i><b>${c}</b> ${MEANING[c] ?? ''}</span>`;
   $('legend').innerHTML = cats.map(key).join('') +
     '<span class="k"><b>→</b> flows from a resource to what uses it</span>' +
-    '<span class="k"><b>×N</b> N resources of that type grouped</span>' +
+    '<span class="k"><b>number badge</b> how many resources of that type are grouped; click the card to see each one</span>' +
+    '<span class="k"><b>name</b> shown under the type: the Terraform name, or the Name tag / file:line when the name is just "this"</span>' +
     '<span class="k"><b>dashed card</b> connected from another layer</span>' +
     '<span class="k"><b>dashed purple box</b> an expanded module</span>';
 }
+$('out').addEventListener('click', (e) => {
+  const card = e.target.closest('[data-expand]');
+  if (!card) return;
+  $('q').value = card.dataset.expand + '.';
+  $('detail').value = 'detailed';
+  $('back').hidden = false;
+  draw();
+});
+$('back').addEventListener('click', () => { $('q').value = ''; $('detail').value = 'overview'; $('back').hidden = true; draw(); });
 for (const id of ['scope', 'collapse', 'dir', 'fit', 'detail']) $(id).addEventListener('change', draw);
 $('q').addEventListener('input', () => { clearTimeout($('q')._t); $('q')._t = setTimeout(draw, 250); });
 
@@ -160,7 +171,7 @@ async function run() {
     $('status').textContent = `${where}${data.graph.provider.toUpperCase()}: ${nodes.length} resources${mods ? `, ${mods} expanded modules` : ''}, ${edges.length} dependencies` + (data.truncated ? ' (repo tree truncated)' : '');
     if (!nodes.length) { $('view').hidden = true; $('out').textContent = 'No ' + data.graph.provider.toUpperCase() + ' resources found. Try the other cloud in the dropdown.'; return; }
     lastData = data;
-    layer = ''; $('q').value = ''; $('scope').value = ''; 
+    layer = ''; $('q').value = ''; $('scope').value = ''; $('back').hidden = true; 
     buildControls();
     await draw();
     if (mode() === 'repo') history.replaceState(null, '', '?repo=' + encodeURIComponent($('repo').value));

@@ -24,9 +24,11 @@ http.createServer(async (req, res) => {
     }
     const rel = normalize(url.pathname === '/' ? '/index.html' : url.pathname);
     if (rel.includes('..')) { res.writeHead(400); return res.end(); }
+    const data = await readFile(join(PUBLIC, rel)); // read first: a missing file must not leave headers half-sent
     res.writeHead(200, { 'content-type': TYPES[extname(rel)] ?? 'application/octet-stream' });
-    res.end(await readFile(join(PUBLIC, rel)));
+    res.end(data);
   } catch (err) {
+    if (res.headersSent) return res.end();
     res.writeHead(err.code === 'ENOENT' ? 404 : 500, { 'content-type': 'application/json' });
     res.end(JSON.stringify({ error: err.message }));
   }
