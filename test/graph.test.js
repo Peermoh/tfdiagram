@@ -454,3 +454,118 @@ test('overview keeps a lone resource\'s details, drops them for real groups', as
   assert.equal(rt.details, undefined);
   assert.equal(rt.summary, undefined);
 });
+
+test('details: settings for every resource, S3 / LB / EBS / storage sub-resources folded in', () => {
+  const g = buildGraph([{ path: 'x.tf', content: `
+    resource "aws_s3_bucket" "logs" {
+      bucket = "my-logs"
+      tags   = { Env = "prod" }
+    }
+    resource "aws_s3_bucket_versioning" "logs" {
+      bucket = aws_s3_bucket.logs.id
+      versioning_configuration {
+        status = "Enabled"
+      }
+    }
+    resource "aws_s3_bucket_server_side_encryption_configuration" "logs" {
+      bucket = aws_s3_bucket.logs.id
+      rule {
+        apply_server_side_encryption_by_default {
+          sse_algorithm = "aws:kms"
+        }
+      }
+    }
+    resource "aws_s3_bucket_public_access_block" "logs" {
+      bucket                  = aws_s3_bucket.logs.id
+      block_public_acls       = true
+      block_public_policy     = true
+      ignore_public_acls      = true
+      restrict_public_buckets = true
+    }
+    resource "aws_lb" "app" {
+      load_balancer_type = "application"
+      internal           = false
+    }
+    resource "aws_lb_target_group" "web" {
+      port     = 8080
+      protocol = "HTTP"
+      health_check {
+        path = "/health"
+      }
+    }
+    resource "aws_lb_listener" "https" {
+      load_balancer_arn = aws_lb.app.arn
+      port              = 443
+      protocol          = "HTTPS"
+      default_action {
+        type             = "forward"
+        target_group_arn = aws_lb_target_group.web.arn
+      }
+    }
+    resource "aws_ebs_volume" "data" {
+      availability_zone = "eu-west-1a"
+      size              = 100
+      type              = "gp3"
+      encrypted         = true
+    }
+    resource "aws_instance" "web" {
+      instance_type = "t3.micro"
+      root_block_device {
+        volume_size = 30
+        volume_type = "gp3"
+      }
+    }
+    resource "aws_volume_attachment" "data" {
+      device_name = "/dev/sdh"
+      volume_id   = aws_ebs_volume.data.id
+      instance_id = aws_instance.web.id
+    }` }]);
+  const node = (id) => g.nodes.find((n) => n.id === id);
+  const rows = (id) => Object.fromEntries(node(id).details.rows.map((r) => [r.k, r.value]));
+
+  const s3 = rows('aws_s3_bucket.logs');
+  assert.equal(s3.bucket, 'my-logs');
+  assert.equal(s3.versioning, 'Enabled');
+  assert.equal(s3.encryption, 'aws:kms');
+  assert.equal(s3.public_access, 'all blocked');
+  assert.ok(!('tags' in s3));
+  assert.equal(node('aws_s3_bucket.logs').summary, 'versioned · encrypted · private');
+  assert.ok(!g.nodes.some((n) => n.type.startsWith('aws_s3_bucket_')), 'bucket sub-resources stay hidden');
+
+  assert.equal(rows('aws_lb.app').listener, 'HTTPS 443 → forward to LB target group web');
+  assert.equal(node('aws_lb.app').summary, 'application public :443');
+  assert.match(rows('aws_lb_target_group.web').health_check, /path \/health/);
+
+  assert.equal(node('aws_ebs_volume.data').summary, '100 GB gp3 encrypted');
+  assert.equal(rows('aws_ebs_volume.data').attached, 'EC2 instance web as /dev/sdh');
+  assert.equal(node('aws_instance.web').summary, 't3.micro');
+  assert.match(rows('aws_instance.web').root_block_device, /size 30, type gp3/);
+  assert.ok(!g.nodes.some((n) => n.type === 'aws_volume_attachment'));
+
+  const az = buildGraph([{ path: 'a.tf', content: `
+    resource "azurerm_storage_account" "sa" {
+      name                     = "st1"
+      account_tier             = "Standard"
+      account_replication_type = "LRS"
+    }
+    resource "azurerm_storage_container" "c" {
+      name                  = "assets"
+      storage_account_name  = azurerm_storage_account.sa.name
+      container_access_type = "private"
+    }
+    resource "azurerm_lb" "lb" {
+      sku = "Standard"
+    }
+    resource "azurerm_lb_rule" "http" {
+      loadbalancer_id = azurerm_lb.lb.id
+      name            = "http"
+      protocol        = "Tcp"
+      frontend_port   = 80
+      backend_port    = 8080
+    }` }], { provider: 'azure' });
+  const a = (id) => az.nodes.find((n) => n.id === id);
+  assert.equal(a('azurerm_storage_account.sa').summary, 'Standard LRS');
+  assert.ok(a('azurerm_storage_account.sa').details.rows.some((r) => r.k === 'container' && r.value === 'assets (private)'));
+  assert.equal(a('azurerm_lb.lb').summary, 'Standard · 1 rules');
+  assert.ok(!az.nodes.some((n) => n.type === 'azurerm_lb_rule' || n.type === 'azurerm_storage_container'));
+});

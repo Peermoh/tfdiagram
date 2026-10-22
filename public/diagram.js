@@ -251,7 +251,7 @@ export function renderDiagram(graph, { direction = 'LR' } = {}) {
 ${tile}
 <text x="58" y="${h === H_CIDR ? 27 : h / 2 - 3}" font-size="13" font-weight="700" fill="var(--fg)">${esc(clip(title, 22))}</text>
 <text x="58" y="${h === H_CIDR ? 44 : h / 2 + 14}" font-size="12" fill="var(--muted)">${esc(clip(names, 26))}</text>
-${extra ? `<text x="58" y="63" font-size="12" font-family="ui-monospace, monospace" fill="${color}" font-weight="600">${esc(clip(extra, 27))}</text>` : ''}
+${extra ? `<text x="58" y="63" font-size="11" font-family="ui-monospace, monospace" fill="${color}" font-weight="600">${esc(clip(extra, 23))}</text>` : ''}
 ${badge}
 </g>`;
     out.push(card);

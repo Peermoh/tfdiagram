@@ -183,6 +183,9 @@ function showDetails(id) {
   } else if (d?.kind === 'routes') {
     body = d.rows.length ? `<table><tr><th>Destination</th><th>Goes to</th><th>Note</th></tr>${d.rows.map((r) => `<tr><td><code>${H(r.dest)}</code></td><td>${H(r.target || '—')}</td><td>${H(r.note || '')}${r.dynamic ? ' <span class="tag">dynamic block</span>' : ''}</td></tr>`).join('')}</table>` : '<p>No routes are defined in the Terraform for this table (traffic stays local to the network).</p>';
   }
+  if (d?.kind === 'settings') {
+    body = `<table><tr><th>Setting</th><th>Value</th></tr>${d.rows.map((r) => `<tr><td>${H(r.key)}</td><td><code>${H(r.value)}</code></td></tr>`).join('')}</table>`;
+  }
   const ranges = n.cidrs?.length ? `<p>IP range${n.cidrs.length > 1 ? 's' : ''}: ${n.cidrs.map((c) => `<code>${H(c)}</code>`).join(', ')}</p>` : '';
   const type = n.kind === 'module' ? 'Module' : friendlyType(n.type);
   $('panel').innerHTML = `<button id="close" type="button">✕</button><h2>${H(type)} · ${H(n.label ?? n.name)}</h2>
