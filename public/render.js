@@ -115,9 +115,11 @@ export function filterGraph(graph, { scope = '', collapse = false, layers = null
 
 // Drops an edge when another path already connects the same two nodes (vpc -> subnet -> route makes
 // vpc -> route redundant). Keeps the diagram to the arrows that carry information.
+// Links that exist only through a hidden association (`weak`) never make another arrow redundant: a subnet is
+// "in" its VPC even though its route table is too.
 export function reduceEdges(edges) {
   const out = new Map();
-  for (const e of edges) { if (!out.has(e.from)) out.set(e.from, new Set()); out.get(e.from).add(e.to); }
+  for (const e of edges) { if (e.weak) continue; if (!out.has(e.from)) out.set(e.from, new Set()); out.get(e.from).add(e.to); }
   const reaches = (start, target, skipTo) => {
     const seen = new Set([start]);
     const stack = [...(out.get(start) ?? [])].filter((n) => n !== skipTo);
@@ -132,7 +134,7 @@ export function reduceEdges(edges) {
   };
   const kept = [];
   for (const e of edges) {
-    if (reaches(e.from, e.to, e.to)) out.get(e.from).delete(e.to);
+    if (!e.weak && reaches(e.from, e.to, e.to)) out.get(e.from).delete(e.to);
     else kept.push(e);
   }
   return kept;
@@ -143,27 +145,40 @@ export function summarize(graph) {
   const groupOf = new Map();
   const groups = new Map();
   const nodes = [];
+  const nameOf = new Map(graph.nodes.map((n) => [n.id, n.label ?? n.name]));
   for (const n of graph.nodes) {
     if (isContainer(n) || n.kind === 'module') { groupOf.set(n.id, n.id); nodes.push(n); continue; }
     const id = `${n.parent}::${n.type}`;
     groupOf.set(n.id, id);
     if (!groups.has(id)) {
-      groups.set(id, { id, kind: 'group', type: n.type, category: n.category, parent: n.parent, file: n.file, line: n.line, names: [], cidrs: [], ghost: true, count: 0,
+      groups.set(id, { id, kind: 'group', type: n.type, category: n.category, parent: n.parent, file: n.file, line: n.line, names: [], cidrs: [], ghost: true, inactive: true, count: 0, members: 0,
         // a lone resource keeps its own details; they are dropped as soon as a second one joins the group
         name: n.name, label: n.label, details: n.details, summary: n.summary });
       nodes.push(groups.get(id));
     }
     const g = groups.get(id);
-    if (g.count === 1) { delete g.name; delete g.label; delete g.details; delete g.summary; }
+    if (g.members === 1) { delete g.name; delete g.label; delete g.details; delete g.summary; }
     g.names.push(n.label ?? n.name);
     for (const c of n.cidrs ?? []) if (!g.cidrs.includes(c)) g.cidrs.push(c);
-    g.count++;
-    g.ghost = g.ghost && Boolean(n.ghost); // dimmed only if every member is
+    g.members++;
+    g.count += n.instances ?? 1;                    // a resource with count = 3 stands for 3 things
+    g.ghost = g.ghost && Boolean(n.ghost);          // dimmed only if every member is
+    g.inactive = g.inactive && Boolean(n.inactive);
   }
-  const seen = new Set();
-  const edges = graph.edges
-    .map((e) => ({ from: groupOf.get(e.from), to: groupOf.get(e.to) }))
-    .filter((e) => e.from && e.to && e.from !== e.to && !seen.has(e.from + '\t' + e.to) && seen.add(e.from + '\t' + e.to));
+  // one arrow per pair of groups; remember which individual links it stands for (shown on hover, counted on the arrow)
+  const merged = new Map();
+  for (const e of graph.edges) {
+    const from = groupOf.get(e.from);
+    const to = groupOf.get(e.to);
+    if (!from || !to || from === to) continue;
+    const key = `${from}\t${to}`;
+    if (!merged.has(key)) merged.set(key, { from, to, pairs: [] });
+    merged.get(key).pairs.push([nameOf.get(e.from) ?? e.from, nameOf.get(e.to) ?? e.to]);
+  }
+  const edges = [...merged.values()].map((e) => ({ ...e, count: e.pairs.length }));
+  // a grouped arrow is weak only if every link in it is
+  const strong = new Set(graph.edges.filter((e) => !e.weak).map((e) => `${groupOf.get(e.from)}\t${groupOf.get(e.to)}`));
+  for (const e of edges) if (!strong.has(`${e.from}\t${e.to}`)) e.weak = true;
   return { ...graph, nodes, edges };
 }
 

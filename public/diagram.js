@@ -178,8 +178,8 @@ export function renderDiagram(graph, { direction = 'LR' } = {}) {
   for (const n of graph.nodes) if (n.parent && byId.has(n.parent)) g.setParent(n.id, n.parent);
 
   // Arrows run from the provider to the thing that uses it (VPC -> subnet -> instance).
-  const edges = arrows.map((e) => [entry.get(e.to) ?? e.to, entry.get(e.from) ?? e.from]);
-  for (const [from, to] of edges) if (g.hasNode(from) && g.hasNode(to)) g.setEdge(from, to);
+  const edges = arrows.map((e) => [entry.get(e.to) ?? e.to, entry.get(e.from) ?? e.from, e]);
+  for (const [from, to, e] of edges) if (g.hasNode(from) && g.hasNode(to)) g.setEdge(from, to, { ref: e });
   dagre.layout(g);
 
   const lr = direction === 'LR';
@@ -211,7 +211,14 @@ export function renderDiagram(graph, { direction = 'LR' } = {}) {
       if (lr) { const m = (p.x + q.x) / 2; d += ` L${m} ${p.y} L${m} ${q.y} L${q.x} ${q.y}`; }
       else { const m = (p.y + q.y) / 2; d += ` L${p.x} ${m} L${q.x} ${m} L${q.x} ${q.y}`; }
     }
-    out.push(`<path d="${d}" fill="none" stroke="var(--edge)" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arr)"/>`);
+    // hovering an arrow says which individual links it stands for; several links get a count on the arrow
+    const ref = g.edge(e).ref;
+    const pairs = ref?.pairs ?? [];
+    const tip = pairs.length ? `${pairs.slice(0, 10).map(([consumer, provider]) => `${provider} → ${consumer}`).join('\n')}${pairs.length > 10 ? `\n+${pairs.length - 10} more` : ''}` : '';
+    const last = pts[pts.length - 1];
+    const pill = ref?.count > 1
+      ? `<g transform="translate(${lr ? last.x - 34 : last.x} ${lr ? last.y : last.y - 34})"><rect x="-13" y="-10" width="26" height="20" rx="10" fill="var(--card)" stroke="var(--edge)"/><text y="4" text-anchor="middle" font-size="11" font-weight="700" fill="var(--fg)">${ref.count}</text></g>` : '';
+    out.push(`<g>${tip ? `<title>${esc(tip)}</title>` : ''}<path d="${d}" fill="none" stroke="transparent" stroke-width="12"/><path d="${d}" fill="none" stroke="var(--edge)" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arr)"/>${pill}</g>`);
   }
 
   for (const n of graph.nodes.filter(isContainer)) {
@@ -227,13 +234,15 @@ export function renderDiagram(graph, { direction = 'LR' } = {}) {
     const x = b.x - b.cw / 2;
     const y = b.y - b.ch / 2;
     const h = b.ch;
-    const grouped = n.kind === 'group' && n.count > 1;
+    const total = n.kind === 'group' ? n.count : n.instances ?? 1;          // how many things the card stands for
+    const grouped = n.kind === 'group' && n.members > 1;                  // several resources: click to see each
+    const faint = n.ghost || n.inactive;
     const kind = friendlyType(n.type);
-    const title = b.hdr ? `module.${n.name}` : n.kind === 'module' ? `module.${n.name}` : grouped ? plural(kind) : kind;
+    const title = b.hdr ? `module.${n.name}` : n.kind === 'module' ? `module.${n.name}` : total > 1 ? plural(kind) : kind;
     const label = n.label ?? n.name;
     const names = b.hdr || n.kind === 'module' ? (n.source ?? '') : n.kind === 'group' ? (n.names.length > 3 ? `${n.names.slice(0, 3).join(', ')} +${n.names.length - 3}` : n.names.join(', ')) : label;
     const ranges = n.cidrs?.length ? ` IP ranges: ${n.cidrs.join(', ')}.` : '';
-    const full = ranges + (n.summary ? ` ${n.summary}.` : '') + ' ' + (grouped ? `${n.count} ${plural(kind).toLowerCase()}: ${n.names.join(', ')}. Click to see each one.` : n.kind === 'group' || n.kind === 'resource' ? `${kind} "${label}" (${n.type}${n.kind === 'resource' ? `.${n.name}` : ''}). Click for details.` : title);
+    const full = ranges + (n.summary ? ` ${n.summary}.` : '') + ' ' + (grouped ? `${n.count} ${plural(kind).toLowerCase()} (${n.names.join(', ')}). Click to see each kind.` : total > 1 ? `${total} ${plural(kind).toLowerCase()} (count/for_each = ${total}). ` : n.kind === 'group' || n.kind === 'resource' ? `${kind} "${label}" (${n.type}${n.kind === 'resource' ? `.${n.name}` : ''}). Click for details.` : title);
     const icon = b.hdr || n.kind === 'module' ? 'cube' : iconFor(n.type);
     const code = b.hdr || n.kind === 'module' ? 'MOD' : abbrFor(n.type);
     const official = !b.hdr && n.kind !== 'module' && OFFICIAL[n.type];
@@ -244,10 +253,10 @@ export function renderDiagram(graph, { direction = 'LR' } = {}) {
 <g transform="translate(11 ${h / 2 - 25})" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${glyph(icon)}</g>
 <text x="24" y="${h / 2 + 21}" text-anchor="middle" font-size="9.5" font-weight="700" fill="#fff" letter-spacing=".3">${esc(code)}</text>`;
     const extra = n.summary || cidrText(n.cidrs);
-    const badge = grouped ? `<circle cx="${b.cw}" cy="0" r="12" fill="${color}" stroke="var(--card)" stroke-width="2.5"/><text x="${b.cw}" y="4.5" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">${n.count}</text>` : '';
-    const card = `<g transform="translate(${x} ${y})"${n.ghost ? ' opacity="0.5"' : ''}${grouped ? ` data-expand="${esc(n.type)}"` : b.hdr ? '' : ` data-node="${esc(n.id)}"`} style="cursor:pointer">
+    const badge = total > 1 ? `<circle cx="${b.cw}" cy="0" r="12" fill="${color}" stroke="var(--card)" stroke-width="2.5"/><text x="${b.cw}" y="4.5" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">${total}</text>` : '';
+    const card = `<g transform="translate(${x} ${y})"${faint ? ' opacity="0.5"' : ''}${grouped ? ` data-expand="${esc(n.type)}"` : b.hdr ? '' : ` data-node="${esc(n.id)}"`} style="cursor:pointer">
 <title>${esc(full)}</title>
-<rect width="${b.cw}" height="${h}" rx="9" fill="var(--card)" stroke="${color}" stroke-width="1.6"${n.ghost ? ' stroke-dasharray="5 4"' : ''}/>
+<rect width="${b.cw}" height="${h}" rx="9" fill="var(--card)" stroke="${color}" stroke-width="1.6"${faint ? ' stroke-dasharray="5 4"' : ''}/>
 ${tile}
 <text x="58" y="${h === H_CIDR ? 27 : h / 2 - 3}" font-size="13" font-weight="700" fill="var(--fg)">${esc(clip(title, 22))}</text>
 <text x="58" y="${h === H_CIDR ? 44 : h / 2 + 14}" font-size="12" fill="var(--muted)">${esc(clip(names, 26))}</text>

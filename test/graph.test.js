@@ -736,3 +736,97 @@ test('cidr: ranges from a module call\'s for-expressions, slice() lengths and el
   assert.deepEqual(c('module.vpc.aws_subnet.public'), ['10.0.48.0/24', '10.0.49.0/24', '10.0.50.0/24']);
   assert.deepEqual(c('module.vpc.aws_subnet.db'), ['10.0.200.0/24']);
 });
+
+test('count / for_each: resources that are not created are left out, copies are counted', async () => {
+  const { evalNum, simplify } = await import('../lib/details.js');
+  const { loadTree } = await import('../lib/modules.js');
+  const { summarize } = await import('../public/render.js');
+  assert.equal(evalNum('max(length([]), length(["a","b"]))'), 2);
+  assert.equal(evalNum('length(keys({}))'), 0);
+  assert.equal(simplify('(true) ? (false) ? 1 : 2 : 3'), '2');              // nested conditional in the middle branch
+  assert.equal(simplify('(false) ? (true) ? 1 : 2 : 3'), '3');
+
+  const dirs = {
+    ex: [{ path: 'ex/main.tf', content: `
+      module "vpc" {
+        source          = "../"
+        private_subnets = ["10.0.1.0/24", "10.0.2.0/24"]
+        gateways        = {}
+      }
+      module "off" {
+        source     = "../"
+        create_vpc = false
+        gateways   = {}
+      }` }],
+    '': [{ path: 'main.tf', content: `
+      variable "create_vpc" { default = true }
+      variable "private_subnets" { default = [] }
+      variable "public_subnets" { default = [] }
+      variable "gateways" { default = { a = 1 } }
+      locals {
+        create_vpc  = var.create_vpc
+        len_private = length(var.private_subnets)
+        len_public  = length(var.public_subnets)
+      }
+      resource "aws_vpc" "this" { count = local.create_vpc ? 1 : 0 }
+      resource "aws_subnet" "private" {
+        count      = local.create_vpc && local.len_private > 0 ? local.len_private : 0
+        cidr_block = element(var.private_subnets, count.index)
+        vpc_id     = aws_vpc.this[0].id
+      }
+      resource "aws_subnet" "public" {
+        count  = local.create_vpc && local.len_public > 0 ? local.len_public : 0
+        vpc_id = aws_vpc.this[0].id
+      }
+      resource "aws_internet_gateway" "this" {
+        count  = local.create_vpc && local.len_public > 0 ? 1 : 0
+        vpc_id = aws_vpc.this[0].id
+      }
+      resource "aws_customer_gateway" "this" { for_each = var.gateways }
+      resource "aws_nat_gateway" "x" {
+        for_each = { for k, v in var.gateways : k => v if local.create_vpc }
+      }` }],
+  };
+  const tree = await loadTree('ex', async (d) => dirs[d] ?? []);
+  const g = buildGraph(tree);
+  const ids = g.nodes.map((n) => n.id);
+  assert.ok(ids.includes('module.vpc.aws_vpc.this') && ids.includes('module.vpc.aws_subnet.private'));
+  assert.ok(!ids.includes('module.vpc.aws_subnet.public') && !ids.includes('module.vpc.aws_internet_gateway.this'), 'count = 0 resources are not drawn');
+  assert.ok(!ids.includes('module.vpc.aws_customer_gateway.this'), 'for_each over {} makes nothing');
+  assert.equal(g.nodes.find((n) => n.id === 'module.vpc.aws_subnet.private').instances, 2);
+  assert.deepEqual(g.nodes.find((n) => n.id === 'module.vpc.aws_subnet.private').cidrs, ['10.0.1.0/24', '10.0.2.0/24']);
+  assert.equal(g.nodes.find((n) => n.id === 'module.off').expanded, false);                     // everything off: a plain module card
+  assert.equal(g.nodes.find((n) => n.id === 'module.off').summary, 'nothing created here');
+  assert.ok(!ids.some((i) => i.startsWith('module.off.')));
+  assert.ok(g.inactive.includes('module.vpc.aws_subnet.public') && g.inactive.includes('module.off.aws_vpc.this'));
+
+  const shown = buildGraph(tree, { showInactive: true });
+  const pub = shown.nodes.find((n) => n.id === 'module.vpc.aws_subnet.public');
+  assert.equal(pub.inactive, true);
+  assert.equal(pub.summary, 'not created (count = 0)');
+
+  // the overview counts copies, and an arrow remembers the links it merges
+  const o = summarize(g);
+  const sub = o.nodes.find((n) => n.type === 'aws_subnet');
+  assert.equal(sub.members, 1);
+  assert.equal(sub.count, 2);
+  assert.ok(o.edges.some((e) => /aws_vpc$/.test(e.to) && e.count === 1 && e.pairs[0][0] === 'private'));
+});
+
+test('a link made only through a hidden association does not hide a direct one', async () => {
+  const { reduceEdges } = await import('../public/render.js');
+  const g = buildGraph([{ path: 'n.tf', content: `
+    resource "aws_vpc" "v" {}
+    resource "aws_route_table" "rt" { vpc_id = aws_vpc.v.id }
+    resource "aws_subnet" "s" { vpc_id = aws_vpc.v.id }
+    resource "aws_route_table_association" "a" {
+      subnet_id      = aws_subnet.s.id
+      route_table_id = aws_route_table.rt.id
+    }` }]);
+  const link = g.edges.find((e) => e.from === 'aws_subnet.s' && e.to === 'aws_route_table.rt');
+  assert.equal(link.weak, true);
+  const kept = reduceEdges(g.edges).map((e) => `${e.from}>${e.to}`).sort();
+  assert.deepEqual(kept, ['aws_route_table.rt>aws_vpc.v', 'aws_subnet.s>aws_route_table.rt', 'aws_subnet.s>aws_vpc.v']);   // subnet -> vpc stays
+  // while a path made of direct links still removes the redundant arrow
+  assert.equal(reduceEdges([{ from: 'a', to: 'b' }, { from: 'b', to: 'c' }, { from: 'a', to: 'c' }]).length, 2);
+});

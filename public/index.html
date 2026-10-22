@@ -72,6 +72,7 @@
     <button id="go">Generate</button>
   </form>
   <div class="opts">
+    <label><input type="checkbox" id="inactive"> Also show resources that are not created (count = 0)</label>
     <label><input type="checkbox" id="simplify" checked> Hide plumbing (IAM attachments, SG rules, associations)</label>
     <label id="tokenLabel" hidden>GitHub token (private repos): <input type="password" id="token" autocomplete="off" size="20"></label>
   </div>
@@ -187,7 +188,8 @@ function drawLegend(g) {
   const key = (c) => `<span class="k"><i style="background:${COLORS[c] ?? COLORS.Other}"></i><b>${c}</b> ${MEANING[c] ?? ''}</span>`;
   $('legend').innerHTML = cats.map(key).join('') +
     '<span class="k"><b>→</b> flows from a resource to what uses it</span>' +
-    '<span class="k"><b>number badge</b> how many resources of that type are grouped; click the card to see each one</span>' +
+    '<span class="k"><b>number badge</b> how many of that resource are created (count / for_each, or several grouped); click a grouped card to see each kind</span>' +
+    '<span class="k"><b>number on an arrow</b> that many separate links are merged into it; hover the arrow to see them</span>' +
     '<span class="k"><b>click a card</b> to see its rules / routes, IP ranges and source line</span>' +
     '<span class="k"><b>icon + code</b> the service (EC2, S3, NSG, AKS...); the colour is its layer</span>' +
     '<span class="k"><b>coloured monospace line</b> the IP range (CIDR) the resource declares, when it can be worked out</span>' +
@@ -221,10 +223,11 @@ function showDetails(id) {
   }
   const alone = shownEdges && !shownEdges.some((e) => e.from === id || e.to === id)
     ? '<p class="tag">No arrows: no other resource in this Terraform refers to this one, and it refers to none. It may be linked outside this code (another repo, the console) or through something that can\'t be followed statically.</p>' : '';
+  const copies = (n.instances > 1 ? `<p>Creates <b>${n.instances}</b> copies (count / for_each).</p>` : '') + (n.inactive ? '<p class="tag">Not created with the values we can see: its count / for_each works out to 0.</p>' : '');
   const ranges = n.cidrs?.length ? `<p>IP range${n.cidrs.length > 1 ? 's' : ''}: ${n.cidrs.map((c) => `<code>${H(c)}</code>`).join(', ')}</p>` : '';
   const type = n.kind === 'module' ? 'Module' : friendlyType(n.type);
   $('panel').innerHTML = `<button id="close" type="button">✕</button><h2>${H(type)} · ${H(n.label ?? n.name)}</h2>
-    <div class="meta">${H(n.kind === 'module' ? `module.${n.name}` : `${n.type}.${n.name}`)} · ${sourceLink(n)}</div>${ranges}${body}${alone}`;
+    <div class="meta">${H(n.kind === 'module' ? `module.${n.name}` : `${n.type}.${n.name}`)} · ${sourceLink(n)}</div>${copies}${ranges}${body}${alone}`;
   $('panel').hidden = false;
   $('close').addEventListener('click', () => { $('panel').hidden = true; });
 }
@@ -258,6 +261,7 @@ $('back').addEventListener('click', () => {
   draw().then(() => $('backbar').scrollIntoView({ block: 'nearest' }));
 });
 for (const id of ['scope', 'collapse', 'dir', 'fit', 'detail']) $(id).addEventListener('change', draw);
+$('inactive').addEventListener('change', () => { if (lastData) run(); });
 $('q').addEventListener('input', () => { clearTimeout($('q')._t); $('q')._t = setTimeout(draw, 250); });
 
 // ---- upload zip -------------------------------------------------------------------------------
@@ -290,7 +294,7 @@ async function run() {
   if (mode() === 'zip' && !zipFiles) { $('status').className = 'err'; $('status').textContent = 'Choose a .zip first'; return; }
   $('go').disabled = true; $('status').className = ''; $('status').textContent = mode() === 'repo' ? 'Fetching Terraform files…' : 'Parsing…';
   try {
-    const qs = `simplify=${$('simplify').checked ? 1 : 0}&provider=${$('provider').value}`;
+    const qs = `simplify=${$('simplify').checked ? 1 : 0}&inactive=${$('inactive').checked ? 1 : 0}&provider=${$('provider').value}`;
     const res = mode() === 'paste'
       ? await fetch(`/api/diagram?${qs}`, { method: 'POST', body: JSON.stringify({ code: $('code').value }) })
       : mode() === 'zip'
