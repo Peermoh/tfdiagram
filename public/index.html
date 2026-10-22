@@ -139,6 +139,7 @@ function drawLegend(g) {
   $('legend').innerHTML = cats.map(key).join('') +
     '<span class="k"><b>→</b> flows from a resource to what uses it</span>' +
     '<span class="k"><b>number badge</b> how many resources of that type are grouped; click the card to see each one</span>' +
+    '<span class="k"><b>coloured monospace line</b> the IP range (CIDR) the resource declares, when it can be worked out</span>' +
     '<span class="k"><b>name</b> shown under the type: the Terraform name, or the Name tag / file:line when the name is just "this"</span>' +
     '<span class="k"><b>dashed card</b> connected from another layer</span>' +
     '<span class="k"><b>dashed purple box</b> an expanded module</span>';

@@ -39,6 +39,12 @@ export function friendlyType(type) {
   return words[0][0].toUpperCase() + words[0].slice(1) + (words.length > 1 ? ' ' + words.slice(1).join(' ') : '');
 }
 
+// "10.0.0.0/16" or "10.0.1.0/24 +2" for the card's IP-range line.
+export function cidrText(cidrs) {
+  if (!cidrs?.length) return '';
+  return cidrs.length > 1 ? `${cidrs[0]} +${cidrs.length - 1}` : cidrs[0];
+}
+
 export function plural(word) {
   if (/(s|x|ch|sh)$/i.test(word)) return word + 'es';
   if (/[^aeiou]y$/i.test(word)) return word.slice(0, -1) + 'ies';
@@ -82,7 +88,7 @@ export function filterGraph(graph, { scope = '', collapse = false, layers = null
   const q = query.trim().toLowerCase();
   if (layers || q) {
     const leaves = nodes.filter((n) => !isContainer(n));
-    const core = new Set(leaves.filter((n) => (!layers || layers.has(n.category)) && (!q || `${n.type} ${n.name} ${n.label ?? ''} ${n.id}`.toLowerCase().includes(q))).map((n) => n.id));
+    const core = new Set(leaves.filter((n) => (!layers || layers.has(n.category)) && (!q || `${n.type} ${n.name} ${n.label ?? ''} ${(n.cidrs ?? []).join(' ')} ${n.id}`.toLowerCase().includes(q))).map((n) => n.id));
     const ghost = new Set();
     const ghostModules = new Set(); // modules linked to a match are shown as single dimmed boxes
     if (neighbors) {
@@ -142,11 +148,12 @@ export function summarize(graph) {
     const id = `${n.parent}::${n.type}`;
     groupOf.set(n.id, id);
     if (!groups.has(id)) {
-      groups.set(id, { id, kind: 'group', type: n.type, category: n.category, parent: n.parent, file: n.file, line: n.line, names: [], ghost: true, count: 0 });
+      groups.set(id, { id, kind: 'group', type: n.type, category: n.category, parent: n.parent, file: n.file, line: n.line, names: [], cidrs: [], ghost: true, count: 0 });
       nodes.push(groups.get(id));
     }
     const g = groups.get(id);
     g.names.push(n.label ?? n.name);
+    for (const c of n.cidrs ?? []) if (!g.cidrs.includes(c)) g.cidrs.push(c);
     g.count++;
     g.ghost = g.ghost && Boolean(n.ghost); // dimmed only if every member is
   }

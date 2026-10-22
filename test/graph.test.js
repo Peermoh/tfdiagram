@@ -246,3 +246,44 @@ test('azure: icons, friendly names and Azure resource names', async () => {
   assert.equal(label('azurerm_network_interface.nic'), 'nic');
   assert.equal(label('azurerm_service_plan.main'), 'asp-{prefix}');
 });
+
+test('cidr: literals, variable defaults, module arguments, cidrsubnet, azure', async () => {
+  const { cidrsubnet } = await import('../lib/cidr.js');
+  const { cidrText } = await import('../public/render.js');
+  assert.equal(cidrsubnet('10.0.0.0/16', 8, 1), '10.0.1.0/24');
+  assert.equal(cidrsubnet('10.0.0.0/16', 8, 255), '10.0.255.0/24');
+  assert.equal(cidrsubnet('192.168.4.0/22', 2, 3), '192.168.7.0/24');
+  assert.equal(cidrsubnet('10.0.0.0/16', 8, 256), null);
+  assert.equal(cidrText(['10.0.1.0/24', 'a', 'b']), '10.0.1.0/24 +2');
+
+  const { loadTree } = await import('../lib/modules.js');
+  const dirs = {
+    '': [{ path: 'main.tf', content: `
+      module "net" {
+        source          = "./net"
+        cidr            = "10.1.0.0/16"
+        private_subnets = ["10.1.1.0/24", "10.1.2.0/24"]
+      }
+      resource "aws_vpc" "main" { cidr_block = "10.9.0.0/16" }` }],
+    net: [{ path: 'net/n.tf', content: `
+      variable "cidr" { default = "10.0.0.0/8" }
+      variable "private_subnets" { default = [] }
+      locals { newbits = 8 }
+      resource "aws_vpc" "this" { cidr_block = var.cidr }
+      resource "aws_subnet" "private" { cidr_block = element(var.private_subnets, count.index) }
+      resource "aws_subnet" "calc" { cidr_block = cidrsubnet(var.cidr, local.newbits, 4) }
+      resource "aws_subnet" "dyn" { cidr_block = cidrsubnet(var.cidr, 8, count.index) }` }],
+  };
+  const g = buildGraph(await loadTree('', async (d) => dirs[d] ?? []));
+  const c = (id) => g.nodes.find((n) => n.id === id).cidrs;
+  assert.deepEqual(c('aws_vpc.main'), ['10.9.0.0/16']);
+  assert.deepEqual(c('module.net.aws_vpc.this'), ['10.1.0.0/16']);          // module argument beats the default
+  assert.deepEqual(c('module.net.aws_subnet.private'), ['10.1.1.0/24', '10.1.2.0/24']);
+  assert.deepEqual(c('module.net.aws_subnet.calc'), ['10.1.4.0/24']);
+  assert.deepEqual(c('module.net.aws_subnet.dyn'), ['/24 of 10.1.0.0/16']);   // index unknown: still shows the size
+
+  const az = buildGraph([{ path: 'a.tf', content: `
+    resource "azurerm_virtual_network" "main" { address_space = ["10.2.0.0/16"] }
+    resource "azurerm_subnet" "app" { address_prefixes = ["10.2.1.0/24"] }` }], { provider: 'azure' });
+  assert.deepEqual(az.nodes.map((n) => n.cidrs), [['10.2.0.0/16'], ['10.2.1.0/24']]);
+});
