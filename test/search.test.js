@@ -11,10 +11,15 @@ test('search query is built from the words and the options', () => {
   assert.equal(buildQuery({ q: ' vpc   module ' }), 'vpc module language:HCL');
   assert.equal(buildQuery({ q: 'landing zone', cloud: 'azure' }), 'landing zone azure language:HCL');
   assert.equal(buildQuery({ q: 'org:hashicorp', hcl: false }), 'org:hashicorp');
-  assert.throws(() => buildQuery({ q: '   ' }), /Type something/);
+  // nothing typed: the popular Terraform repos, for the chosen cloud
+  assert.equal(buildQuery({ q: '   ' }), 'terraform language:HCL');
+  assert.equal(buildQuery({ q: '', cloud: 'aws' }), 'terraform aws language:HCL');
+  assert.equal(buildQuery({ cloud: 'azure', hcl: false }), 'terraform azure');
+  assert.equal(buildQuery({ q: 'aws vpc', cloud: 'aws' }), 'aws vpc language:HCL');     // the cloud word is not added twice
   assert.throws(() => buildQuery({ q: 'x'.repeat(201) }), /too long/);
   const p = parseSearchParams(new URLSearchParams('q=eks&sort=bogus&page=99&hcl=0&cloud=aws'));
   assert.deepEqual(p, { query: 'eks aws', sort: 'stars', page: 10 });
+  assert.deepEqual(parseSearchParams(new URLSearchParams('q=&cloud=azure')), { query: 'terraform azure language:HCL', sort: 'stars', page: 1 });
 });
 
 test('search calls GitHub with the right URL and returns slim results', async () => {
@@ -41,8 +46,8 @@ test('search errors are explained', async () => {
   await assert.rejects(fail(403), /rate limited.*paste a GitHub token/);
   await assert.rejects(fail(422, { message: 'Validation Failed' }), /could not understand.*Validation Failed/);
   await assert.rejects(fail(500), /failed \(500\)/);
-  // through the endpoint: bad input is a 400, GitHub trouble a 502
-  assert.equal((await handleSearch(new Request('http://x/api/search?q='))).status, 400);
+  // through the endpoint: a too-long search is a 400, GitHub trouble a 502
+  assert.equal((await handleSearch(new Request(`http://x/api/search?q=${'x'.repeat(201)}`))).status, 400);
   const res = await withFetch(async () => jsonRes({}, 403), () => handleSearch(new Request('http://x/api/search?q=vpc'), {}));
   assert.equal(res.status, 502);
   assert.match((await res.json()).error, /rate limited/);

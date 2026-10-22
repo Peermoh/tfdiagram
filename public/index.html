@@ -76,7 +76,7 @@
     <input type="text" id="repo" hidden placeholder="https://github.com/owner/repo or .../tree/main/infra">
     <label id="repodirLabel" hidden style="flex:1 1 100%;color:var(--muted);font-size:14px">Folder to draw: <select id="repodir" style="max-width:100%"></select></label>
     <div id="searchbox" hidden>
-      <input type="search" id="sq" placeholder="Search Terraform repos on GitHub: vpc, eks, landing zone, org:terraform-aws-modules ...">
+      <input type="search" id="sq" placeholder="Search Terraform repos (vpc, eks, landing zone, org:hashicorp ...) or leave empty for the popular ones">
       <div class="opts" style="margin:8px 0 0">
         <label>Sort: <select id="ssort"><option value="stars">Most stars</option><option value="updated">Recently updated</option><option value="best">Best match</option></select></label>
         <label>Cloud: <select id="scloud"><option value="any">Any</option><option value="aws">AWS</option><option value="azure">Azure</option></select></label>
@@ -146,7 +146,10 @@ function syncMode() {
   $('go').textContent = m === 'search' ? 'Search' : 'Generate';
   $('code').required = m === 'paste'; $('repo').required = m === 'repo';
 }
-document.querySelectorAll('input[name=mode]').forEach((r) => r.addEventListener('change', syncMode));
+document.querySelectorAll('input[name=mode]').forEach((r) => r.addEventListener('change', () => {
+  syncMode();
+  if (mode() === 'search' && !$('results').children.length && !$('sq').value.trim()) search(1);   // first visit: show the popular repos
+}));
 syncMode();
 
 const LAYER_ORDER = ['Networking', 'Compute', 'Data', 'Security & IAM', 'Modules', 'Data sources', 'Other'];
@@ -308,7 +311,6 @@ function hitHtml(r) {
     <p style="margin:8px 0 0"><button type="button" data-draw="${H(r.fullName)}">Draw diagram</button></p></div>`;
 }
 async function search(page) {
-  if (!$('sq').value.trim()) { $('status').className = 'err'; $('status').textContent = 'Type something to search for, for example "vpc", "eks" or "landing zone"'; return; }
   const mine = ++searchSeq;
   $('go').disabled = true; $('status').className = ''; $('status').textContent = 'Searching GitHub…';
   try {
@@ -324,7 +326,8 @@ async function search(page) {
     box.insertAdjacentHTML('beforeend', data.items.map(hitHtml).join(''));
     $('sclearbar').hidden = false;
     if (data.hasMore) box.insertAdjacentHTML('beforeend', '<p class="more"><button type="button" id="more">Show more</button></p>');
-    $('status').textContent = data.total ? `${fmt.format(data.total)} repositor${data.total === 1 ? 'y' : 'ies'} found${data.total > 1000 ? ' (GitHub shows the first 1,000)' : ''}` : 'No repositories found. Try other words, or untick "Only Terraform repos".';
+    const what = $('sq').value.trim() ? '' : `popular Terraform repositories${$('scloud').value === 'any' ? '' : ` for ${$('scloud').selectedOptions[0].text}`}: `;
+    $('status').textContent = data.total ? `${what}${fmt.format(data.total)} repositor${data.total === 1 ? 'y' : 'ies'} found${data.total > 1000 ? ' (GitHub shows the first 1,000)' : ''}` : 'No repositories found. Try other words, or untick "Only Terraform repos".';
   } catch (e) {
     $('status').className = 'err'; $('status').textContent = e.message;
   } finally { $('go').disabled = false; }
@@ -341,6 +344,7 @@ function clearSearch() {
   $('status').className = ''; $('status').textContent = '';
   $('sq').focus();
 }
+for (const id of ['scloud', 'ssort', 'shcl']) $(id).addEventListener('change', () => { if (mode() === 'search') search(1); });
 $('sclear').addEventListener('click', clearSearch);
 $('sq').addEventListener('search', () => { if (!$('sq').value) clearSearch(); });   // the ✕ inside the search box
 $('sq').addEventListener('keydown', (e) => { if (e.key === 'Escape') clearSearch(); });
