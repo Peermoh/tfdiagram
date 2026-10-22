@@ -7,9 +7,12 @@
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="theme-color" content="#0b1120">
+<script>try { if (localStorage.getItem('tfTheme') === 'dark') document.documentElement.dataset.theme = 'dark'; } catch {}</script>
 <style>
   :root { --bg:#fff; --fg:#1a1a1a; --muted:#666; --line:#d8d8d8; --accent:#c2410c; --card:#fff; --edge:#64748b; }
   @media (prefers-color-scheme: dark) { :root { --bg:#111; --fg:#eee; --muted:#999; --line:#333; --accent:#fb923c; --card:#1b1b1b; --edge:#94a3b8; } }
+  :root[data-theme=dark] { --bg:#111; --fg:#eee; --muted:#999; --line:#333; --accent:#fb923c; --card:#1b1b1b; --edge:#94a3b8; color-scheme:dark; }
+  #themebox { float:right; font-size:14px; color:var(--muted); }
   * { box-sizing: border-box; }
   body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.5 system-ui, sans-serif; }
   main { max-width: 1100px; margin: 0 auto; padding: 32px 16px; }
@@ -62,6 +65,7 @@
 </head>
 <body>
 <main>
+  <label id="themebox">Theme: <select id="theme"><option value="">Default</option><option value="dark">Dark</option></select></label>
   <h1 class="brand"><img src="logo.svg" alt="" width="44" height="44"><span>TFDiagram</span></h1>
   <p class="sub">Paste Terraform code or a GitHub repo URL (AWS or Azure) and get an architecture diagram.</p>
   <div class="opts">
@@ -137,6 +141,12 @@ import { COLORS, filterGraph, friendlyType, summarize, toMermaid } from './rende
 import { hasOfficialIcons, renderArchitecture, renderDiagram, setOfficialIcons } from './diagram.js';
 const $ = (id) => document.getElementById(id);
 let lastData = null;
+try { $('theme').value = localStorage.getItem('tfTheme') === 'dark' ? 'dark' : ''; } catch {}
+$('theme').addEventListener('change', () => {
+  const dark = $('theme').value === 'dark';
+  if (dark) document.documentElement.dataset.theme = 'dark'; else delete document.documentElement.dataset.theme;
+  try { localStorage.setItem('tfTheme', dark ? 'dark' : ''); } catch {}
+});
 // Search GitHub has two pages: the result list, and the diagram of the repo you pressed Draw on. Back returns to the list.
 let searchView = 'list';
 let listScroll = 0;

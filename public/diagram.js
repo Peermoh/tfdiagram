@@ -277,7 +277,7 @@ const LB_PLUMBING = /lb_listener|lb_target_group|alb_|lb_backend|lb_probe|lb_rul
 const EDGE_TYPES = /(^aws_(lb|alb|elb)$|cloudfront|api_gateway|apigateway|front_door|application_gateway|route53_zone|cdn_endpoint|(^azurerm_lb$)|lb$)/;
 const DATA_TYPES = /db_instance|rds_|dynamodb|elasticache|redis|s3_bucket|efs_|ebs_|mssql|sql_|cosmos|storage_account|postgresql|mysql|docdb|redshift|opensearch|elasticsearch|kinesis|sqs_|sns_|servicebus|eventhub|managed_disk|storage_/;
 const klass = (t) => (EDGE_TYPES.test(t) ? 0 : DATA_TYPES.test(t) ? 2 : 1);
-const ARCH = { cloud: '#232f3e', vpc: '#8c4fff', public: '#7aa116', private: '#147eba', plain: '#6b7a8c', azure: '#0078d4', flow: '#e8710a' };
+const ARCH = { cloud: '#5b6b7f', vpc: '#8c4fff', public: '#7aa116', private: '#147eba', plain: '#6b7a8c', azure: '#0078d4', flow: '#e8710a' };
 const nice = (n) => (n.label && !/\.tf:\d+$/.test(n.label) ? n.label : n.name);
 const TW = 132;
 const TH = 112;
