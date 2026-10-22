@@ -15,7 +15,7 @@ Private repos or rate limits: paste a GitHub token in the page (sent per request
 - `lib/parse.js` extracts `resource` / `module` / `data` blocks.
 - `lib/graph.js` finds references between blocks (`aws_subnet.x.id`) as edges, groups nodes
   (Networking, Compute, Data, Security & IAM), hides plumbing by default, and emits Mermaid.
-- `public/index.html` renders the Mermaid in the browser.
+- `public/render.js` filters the graph (layer, search, module, collapse) and emits Mermaid; `public/index.html` draws it in the browser.
 
 ## Input
 Paste `.tf` code or give a GitHub URL; pick AWS, Azure, or auto-detect.

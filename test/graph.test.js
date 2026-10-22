@@ -84,3 +84,36 @@ test('local module expansion', async () => {
   assert.equal(resolveDir('examples/simple', '../../'), '');
   assert.equal(resolveDir('a', '../../x'), null);
 });
+
+test('filterGraph: layers, neighbors, query, scope, collapse', async () => {
+  const { loadTree } = await import('../lib/modules.js');
+  const { filterGraph } = await import('../public/render.js');
+  const tree = await loadTree('', async (d) => d === '' ? [{ path: 'm.tf', content: `
+    module "net" { source = "./net" }
+    resource "aws_instance" "web" { subnet_id = module.net.s }
+    resource "aws_s3_bucket" "b" {}` }] : [{ path: 'net/n.tf', content: `
+    resource "aws_vpc" "v" {}
+    resource "aws_subnet" "s" { vpc_id = aws_vpc.v.id }` }]);
+  const g = buildGraph(tree);
+
+  const nets = filterGraph(g, { layers: new Set(['Networking']) });
+  assert.deepEqual(nets.nodes.map((n) => n.id).sort(), ['module.net', 'module.net.aws_subnet.s', 'module.net.aws_vpc.v']);
+  assert.ok(!nets.nodes.some((n) => n.ghost));
+
+  const compute = filterGraph(g, { layers: new Set(['Compute']), neighbors: true });
+  assert.ok(compute.nodes.find((n) => n.id === 'aws_instance.web') && !compute.nodes.find((n) => n.id === 'aws_instance.web').ghost);
+  assert.ok(compute.nodes.find((n) => n.id === 'module.net'));  // collapsed-or-container neighbour of the instance
+  assert.ok(!compute.nodes.some((n) => n.id === 'aws_s3_bucket.b'));
+
+  const q = filterGraph(g, { query: 'subnet', neighbors: true });
+  assert.ok(q.nodes.find((n) => n.id === 'module.net.aws_vpc.v').ghost);
+  assert.ok(toMermaid(q).includes('classDef ghost'));
+
+  const scoped = filterGraph(g, { scope: 'module.net' });
+  assert.ok(scoped.nodes.every((n) => n.parent === '') && scoped.nodes.length === 2);
+
+  const col = filterGraph(g, { collapse: true });
+  assert.deepEqual(col.nodes.map((n) => n.id).sort(), ['aws_instance.web', 'aws_s3_bucket.b', 'module.net']);
+  assert.ok(col.edges.some((e) => e.from === 'aws_instance.web' && e.to === 'module.net'));
+  assert.equal(col.nodes.find((n) => n.id === 'module.net').expanded, false);
+});

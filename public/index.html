@@ -20,6 +20,9 @@
   .opts { margin:12px 0; display:flex; gap:16px; flex-wrap:wrap; color:var(--muted); font-size:14px; }
   #status { margin:16px 0; color:var(--muted); } #status.err { color:#dc2626; }
   #out { border:1px solid var(--line); border-radius:8px; padding:16px; overflow:auto; min-height:80px; }
+  .tabs { display:flex; gap:6px; flex-wrap:wrap; margin:8px 0; }
+  .tabs button { background:transparent; color:var(--fg); border:1px solid var(--line); padding:6px 12px; font-size:14px; }
+  .tabs button.on { background:var(--accent); color:#fff; border-color:var(--accent); }
   details { margin-top:16px; } pre { overflow:auto; background:rgba(128,128,128,.1); padding:12px; border-radius:6px; }
 </style>
 </head>
@@ -43,7 +46,17 @@
     <label><input type="checkbox" id="simplify" checked> Hide plumbing (IAM attachments, SG rules, associations)</label>
     <label id="tokenLabel" hidden>GitHub token (private repos): <input type="password" id="token" autocomplete="off" size="20"></label>
   </div>
-  <div id="status"></div>
+  <div id="status"></div><div id="stat" style="color:var(--muted);font-size:14px"></div>
+  <div id="view" hidden>
+    <div id="tabs" class="tabs"></div>
+    <div class="opts">
+      <input type="text" id="q" placeholder="Filter: name or type (e.g. subnet)" size="28">
+      <label>Module: <select id="scope"></select></label>
+      <label><input type="checkbox" id="collapse"> Collapse modules</label>
+      <label>Direction: <select id="dir"><option value="LR">Left to right</option><option value="TB">Top to bottom</option></select></label>
+      <label><input type="checkbox" id="fit" checked> Fit to width</label>
+    </div>
+  </div>
   <div id="out"></div>
   <details><summary>Mermaid source</summary><pre id="src"></pre></details>
 </main>
@@ -52,7 +65,10 @@ import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.es
 const dark = matchMedia('(prefers-color-scheme: dark)').matches;
 mermaid.initialize({ startOnLoad: false, theme: dark ? 'dark' : 'default', securityLevel: 'strict', maxTextSize: 200000 });
 
+import { filterGraph, toMermaid } from './render.js';
 const $ = (id) => document.getElementById(id);
+let lastData = null;
+let layer = ''; // '' = all layers
 const mode = () => document.querySelector('input[name=mode]:checked').value;
 function syncMode() {
   const paste = mode() === 'paste';
@@ -61,6 +77,49 @@ function syncMode() {
 }
 document.querySelectorAll('input[name=mode]').forEach((r) => r.addEventListener('change', syncMode));
 syncMode();
+
+const LAYER_ORDER = ['Networking', 'Compute', 'Data', 'Security & IAM', 'Modules', 'Data sources', 'Other'];
+function buildControls() {
+  const g = lastData.graph;
+  const leaves = g.nodes.filter((n) => !(n.kind === 'module' && n.expanded));
+  const counts = new Map();
+  leaves.forEach((n) => counts.set(n.category, (counts.get(n.category) ?? 0) + 1));
+  const cats = [...counts.keys()].sort((a, b) => LAYER_ORDER.indexOf(a) - LAYER_ORDER.indexOf(b));
+  $('tabs').replaceChildren(...[['', `All (${leaves.length})`], ...cats.map((c) => [c, `${c} (${counts.get(c)})`])].map(([value, text]) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.textContent = text; b.dataset.layer = value;
+    b.addEventListener('click', () => { layer = value; draw(); });
+    return b;
+  }));
+  const mods = g.nodes.filter((n) => n.kind === 'module' && n.expanded);
+  $('scope').replaceChildren(new Option('Whole repo', ''), ...mods.map((m) => new Option(m.id, m.id)));
+  $('view').hidden = false;
+}
+
+async function draw() {
+  if (!lastData) return;
+  document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('on', b.dataset.layer === layer));
+  const view = filterGraph(lastData.graph, {
+    scope: $('scope').value, collapse: $('collapse').checked, query: $('q').value,
+    layers: layer ? new Set([layer]) : null, neighbors: Boolean(layer),
+  });
+  const shown = view.nodes.filter((n) => !n.ghost && !(n.kind === 'module' && n.expanded)).length;
+  $('stat').textContent = layer || $('q').value ? ` Showing ${shown} resources` + (layer ? ` in ${layer} (dashed = connected from other layers)` : '') : '';
+  if (!view.nodes.length) { $('out').textContent = 'Nothing matches the filter.'; $('src').textContent = ''; return; }
+  const src = toMermaid(view, { direction: $('dir').value });
+  $('src').textContent = src;
+  try {
+    const { svg } = await mermaid.render('d' + Date.now(), src);
+    $('out').innerHTML = svg;
+    const el = $('out').querySelector('svg');
+    if (!$('fit').checked && el) {
+      const w = el.viewBox.baseVal.width;
+      el.style.maxWidth = 'none'; el.setAttribute('width', w);
+    }
+  } catch (e) { $('out').textContent = 'Could not draw this view: ' + e.message; }
+}
+for (const id of ['scope', 'collapse', 'dir', 'fit']) $(id).addEventListener('change', draw);
+$('q').addEventListener('input', () => { clearTimeout($('q')._t); $('q')._t = setTimeout(draw, 250); });
 
 async function run() {
   $('go').disabled = true; $('status').className = ''; $('status').textContent = mode() === 'paste' ? 'Parsing…' : 'Fetching Terraform files…';
@@ -76,10 +135,11 @@ async function run() {
     const mods = data.graph.nodes.filter((n) => n.kind === 'module' && n.expanded).length;
     const where = data.owner ? `${data.owner}/${data.repo}@${data.branch}: ${data.fileCount} files, ` : '';
     $('status').textContent = `${where}${data.graph.provider.toUpperCase()}: ${nodes.length} resources${mods ? `, ${mods} expanded modules` : ''}, ${edges.length} dependencies` + (data.truncated ? ' (repo tree truncated)' : '');
-    if (!nodes.length) { $('out').textContent = 'No ' + data.graph.provider.toUpperCase() + ' resources found. Try the other cloud in the dropdown.'; return; }
-    $('src').textContent = data.mermaid;
-    const { svg } = await mermaid.render('d' + Date.now(), data.mermaid);
-    $('out').innerHTML = svg;
+    if (!nodes.length) { $('view').hidden = true; $('out').textContent = 'No ' + data.graph.provider.toUpperCase() + ' resources found. Try the other cloud in the dropdown.'; return; }
+    lastData = data;
+    layer = ''; $('q').value = ''; $('scope').value = ''; 
+    buildControls();
+    await draw();
     if (mode() === 'repo') history.replaceState(null, '', '?repo=' + encodeURIComponent($('repo').value));
   } catch (e) {
     $('status').className = 'err'; $('status').textContent = e.message;
