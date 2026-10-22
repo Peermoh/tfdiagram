@@ -6,10 +6,16 @@ Like GitDiagram, but it parses the `.tf` files directly instead of guessing with
     npm start            # http://localhost:3000
     npm test
 
+Upload zip: choose or drop a `.zip` of a Terraform project (or a repo from GitHub's Code > Download ZIP). The zip is
+opened in the browser (`public/unzip.js`, no library); only the `.tf` text is sent to `/api/diagram`. If it holds several
+folders, pick which one to draw; local modules (`./x`, `../../`) are followed inside the zip. Limits: 3000 files,
+500 KB per file, 8 MB of `.tf` text; `.terraform/`, `.git/` and macOS junk are ignored.
+
 URL forms: `https://github.com/owner/repo` or `.../tree/<branch>/<path>` for a subfolder.
 Private repos or rate limits: paste a GitHub token in the page (sent per request, never stored).
 
 ## How it works
+- `public/unzip.js` reads `.tf` files out of an uploaded zip in the browser.
 - `lib/github.js` lists and downloads `.tf` files via the GitHub API.
 - `lib/modules.js` follows local module sources (`./x`, `../../`) and loads those folders too.
 - `lib/parse.js` extracts `resource` / `module` / `data` blocks.

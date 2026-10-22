@@ -35,6 +35,10 @@
   #panel code { font-family:ui-monospace, monospace; } #panel .deny { color:#dc2626; font-weight:600; } #panel .tag { color:var(--muted); font-size:12px; }
   #panel #close { position:absolute; top:8px; right:10px; background:transparent; color:var(--fg); border:1px solid var(--line); padding:4px 10px; }
   #backbar { position:sticky; top:0; z-index:8; display:flex; align-items:center; gap:12px; padding:8px 0; background:var(--bg); }
+  #zipbox { flex:1 1 100%; } #zipdrop { display:block; border:2px dashed var(--line); border-radius:8px; padding:18px; text-align:center; color:var(--muted); cursor:pointer; }
+  #zipdrop.over { border-color:var(--accent); color:var(--fg); } #zipdrop input { display:block; margin:0 auto 8px; max-width:100%; }
+  #zipdirLabel { display:block; margin-top:10px; color:var(--muted); font-size:14px; } #zipdirLabel select { max-width:100%; }
+  .tag { color:var(--muted); font-size:13px; }
   #backbar[hidden] { display:none; }
   #backbar button { padding:8px 16px; } #backlabel { color:var(--muted); font-size:14px; }
   details { margin-top:16px; } pre { overflow:auto; background:rgba(128,128,128,.1); padding:12px; border-radius:6px; }
@@ -47,6 +51,7 @@
   <div class="opts">
     <label><input type="radio" name="mode" value="paste" checked> Paste code</label>
     <label><input type="radio" name="mode" value="repo"> GitHub URL</label>
+    <label><input type="radio" name="mode" value="zip"> Upload zip</label>
     <label>Cloud:
       <select id="provider"><option value="auto">Auto-detect</option><option value="aws">AWS</option><option value="azure">Azure</option></select>
     </label>
@@ -54,6 +59,12 @@
   <form id="f">
     <textarea id="code" rows="12" placeholder='resource "aws_vpc" "main" { ... }  (paste one or more .tf files)'></textarea>
     <input type="text" id="repo" hidden placeholder="https://github.com/owner/repo or .../tree/main/infra">
+    <div id="zipbox" hidden>
+      <label id="zipdrop"><input type="file" id="zip" accept=".zip,application/zip,application/x-zip-compressed">
+        <b>Choose a .zip</b> or drop it here: a Terraform project, or a repo downloaded from GitHub (Code → Download ZIP).</label>
+      <label id="zipdirLabel" hidden>Folder to draw: <select id="zipdir"></select></label>
+      <p class="tag" id="zipnote">The zip is opened in your browser. Only the text of the .tf files is sent to be analysed; nothing is stored.</p>
+    </div>
     <button id="go">Generate</button>
   </form>
   <div class="opts">
@@ -82,6 +93,7 @@
 <script src="vendor/dagre.min.js"></script>
 <script type="module">
 
+import { unzipTerraform } from './unzip.js';
 import { COLORS, filterGraph, friendlyType, summarize, toMermaid } from './render.js';
 import { hasOfficialIcons, renderDiagram, setOfficialIcons } from './diagram.js';
 const $ = (id) => document.getElementById(id);
@@ -97,9 +109,9 @@ fetch('icons/manifest.json').then((r) => (r.ok ? r.json() : {})).catch(() => ({}
 let layer = ''; // '' = all layers
 const mode = () => document.querySelector('input[name=mode]:checked').value;
 function syncMode() {
-  const paste = mode() === 'paste';
-  $('code').hidden = !paste; $('repo').hidden = paste; $('tokenLabel').hidden = paste;
-  $('code').required = paste; $('repo').required = !paste;
+  const m = mode();
+  $('code').hidden = m !== 'paste'; $('repo').hidden = m !== 'repo'; $('zipbox').hidden = m !== 'zip'; $('tokenLabel').hidden = m !== 'repo';
+  $('code').required = m === 'paste'; $('repo').required = m === 'repo';
 }
 document.querySelectorAll('input[name=mode]').forEach((r) => r.addEventListener('change', syncMode));
 syncMode();
@@ -232,19 +244,51 @@ $('back').addEventListener('click', () => {
 for (const id of ['scope', 'collapse', 'dir', 'fit', 'detail']) $(id).addEventListener('change', draw);
 $('q').addEventListener('input', () => { clearTimeout($('q')._t); $('q')._t = setTimeout(draw, 250); });
 
+// ---- upload zip -------------------------------------------------------------------------------
+let zipFiles = null; // [{ path, content }] from the chosen zip
+async function loadZip(file) {
+  $('status').className = ''; $('status').textContent = `Reading ${file.name}…`;
+  try {
+    const { files, skipped } = await unzipTerraform(await file.arrayBuffer());
+    if (!files.length) throw new Error('No .tf files found in that zip');
+    zipFiles = files;
+    $('zipdir').replaceChildren();               // the server proposes the folder on the first run
+    $('zipdirLabel').hidden = true;
+    $('zipnote').textContent = `${files.length} .tf file${files.length === 1 ? '' : 's'} read from ${file.name}${skipped.length ? ` (${skipped.length} skipped: too large or unsupported)` : ''}. Only their text is sent to be analysed; nothing is stored.`;
+    await run();
+  } catch (e) {
+    zipFiles = null;
+    $('status').className = 'err'; $('status').textContent = e.message;
+  }
+}
+$('zip').addEventListener('change', (e) => { const f = e.target.files[0]; if (f) loadZip(f); });
+$('zipdir').addEventListener('change', () => run());
+for (const ev of ['dragenter', 'dragover']) $('zipdrop').addEventListener(ev, (e) => { e.preventDefault(); $('zipdrop').classList.add('over'); });
+for (const ev of ['dragleave', 'drop']) $('zipdrop').addEventListener(ev, () => $('zipdrop').classList.remove('over'));
+$('zipdrop').addEventListener('drop', (e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) loadZip(f); });
+
 async function run() {
-  $('go').disabled = true; $('status').className = ''; $('status').textContent = mode() === 'paste' ? 'Parsing…' : 'Fetching Terraform files…';
+  if (mode() === 'zip' && !zipFiles) { $('status').className = 'err'; $('status').textContent = 'Choose a .zip first'; return; }
+  $('go').disabled = true; $('status').className = ''; $('status').textContent = mode() === 'repo' ? 'Fetching Terraform files…' : 'Parsing…';
   try {
     const qs = `simplify=${$('simplify').checked ? 1 : 0}&provider=${$('provider').value}`;
     const res = mode() === 'paste'
       ? await fetch(`/api/diagram?${qs}`, { method: 'POST', body: JSON.stringify({ code: $('code').value }) })
+      : mode() === 'zip'
+      ? await fetch(`/api/diagram?${qs}`, { method: 'POST', body: JSON.stringify({ files: zipFiles, root: $('zipdir').options.length ? $('zipdir').value : undefined }) })
       : await fetch(`/api/diagram?repo=${encodeURIComponent($('repo').value)}&${qs}`, { headers: $('token').value ? { 'x-github-token': $('token').value } : {} });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
     const { edges } = data.graph;
     const nodes = data.graph.nodes.filter((n) => n.kind !== 'module' || !n.expanded);
     const mods = data.graph.nodes.filter((n) => n.kind === 'module' && n.expanded).length;
-    const where = data.owner ? `${data.owner}/${data.repo}@${data.branch}: ${data.fileCount} files, ` : '';
+    const where = data.owner ? `${data.owner}/${data.repo}@${data.branch}: ${data.fileCount} files, ` : data.dirs ? `zip: ${data.fileCount} files, folder ${data.root || '(top level)'}: ` : '';
+    if (data.dirs && !$('zipdir').options.length) {
+      const depth = (d) => (d ? d.split('/').length : 0);
+      $('zipdir').replaceChildren(...[...data.dirs].sort((a, b) => depth(a.dir) - depth(b.dir) || a.dir.localeCompare(b.dir)).map((d) => new Option(`${d.dir || '(top level)'}  ·  ${d.count} file${d.count === 1 ? '' : 's'}`, d.dir)));
+      $('zipdir').value = data.root;
+      $('zipdirLabel').hidden = data.dirs.length < 2;
+    }
     $('status').textContent = `${where}${data.graph.provider.toUpperCase()}: ${nodes.length} resources${mods ? `, ${mods} expanded modules` : ''}, ${edges.length} dependencies` + (data.truncated ? ' (repo tree truncated)' : '');
     if (!nodes.length) { $('view').hidden = true; $('out').textContent = 'No ' + data.graph.provider.toUpperCase() + ' resources found. Try the other cloud in the dropdown.'; return; }
     lastData = data;
