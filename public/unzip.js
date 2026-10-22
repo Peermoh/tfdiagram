@@ -31,7 +31,7 @@ async function inflate(data, expected) {
   return out;
 }
 
-// Returns { files: [{ path, content }], skipped: [path] } for the .tf files in a zip (an ArrayBuffer).
+// Returns { files: [{ path, content }], skipped: [path], ignored: { tfjson, tfvars } } for the .tf files in a zip (an ArrayBuffer).
 export async function unzipTerraform(buffer, { maxFiles = 3000, maxFile = 500_000, maxTotal = 8_000_000 } = {}) {
   const v = new DataView(buffer);
   const u8 = new Uint8Array(buffer);
@@ -47,6 +47,7 @@ export async function unzipTerraform(buffer, { maxFiles = 3000, maxFile = 500_00
   const text = new TextDecoder();
   const files = [];
   const skipped = [];
+  const ignored = { tfjson: 0, tfvars: 0 }; // present in the zip but not read
   let total = 0;
   for (let i = 0; i < count; i++) {
     if (v.getUint32(p, true) !== CENTRAL) throw new Error('The zip file is damaged');
@@ -58,9 +59,14 @@ export async function unzipTerraform(buffer, { maxFiles = 3000, maxFile = 500_00
     const xlen = v.getUint16(p + 30, true);
     const clen = v.getUint16(p + 32, true);
     const local = v.getUint32(p + 42, true);
-    const path = wantedPath(text.decode(u8.subarray(p + 46, p + 46 + nlen)));
+    const name = text.decode(u8.subarray(p + 46, p + 46 + nlen));
+    const path = wantedPath(name);
     p += 46 + nlen + xlen + clen;
-    if (!path) continue;
+    if (!path) {
+      const other = name.replace(/\\/g, '/');
+      if (!/(^|\/)(\.terraform|\.git|__MACOSX)\//.test(other) && !/\/\._/.test(`/${other}`)) { if (/\.tf\.json$/i.test(other)) ignored.tfjson++; else if (/\.tfvars(\.json)?$/i.test(other)) ignored.tfvars++; }
+      continue;
+    }
     if (flags & 1) throw new Error('This zip is password protected');
     if (usize > maxFile) { skipped.push(path); continue; }
     if (v.getUint32(local, true) !== LOCAL) throw new Error('The zip file is damaged');
@@ -73,5 +79,5 @@ export async function unzipTerraform(buffer, { maxFiles = 3000, maxFile = 500_00
     files.push({ path, content: text.decode(bytes) });
     if (files.length >= maxFiles) break;
   }
-  return { files, skipped };
+  return { files, skipped, ignored };
 }

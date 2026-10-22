@@ -39,6 +39,10 @@
   #zipdrop.over { border-color:var(--accent); color:var(--fg); } #zipdrop input { display:block; margin:0 auto 8px; max-width:100%; }
   #zipdirLabel { display:block; margin-top:10px; color:var(--muted); font-size:14px; } #zipdirLabel select { max-width:100%; }
   .tag { color:var(--muted); font-size:13px; }
+  #checks { margin:6px 0 10px; font-size:14px; } #checks ul { list-style:none; padding:0; margin:4px 0; } #checks li { padding:3px 0 3px 24px; position:relative; }
+  #checks li::before { position:absolute; left:0; } #checks .error::before { content:'✕'; color:#dc2626; } #checks .warn::before { content:'⚠'; color:#d97706; }
+  #checks .info::before { content:'ℹ'; color:var(--accent); } #checks .ok::before { content:'✓'; color:#16a34a; }
+  #checks .error { color:#dc2626; font-weight:600; } #checks summary { cursor:pointer; color:var(--muted); }
   #backbar[hidden] { display:none; }
   #backbar button { padding:8px 16px; } #backlabel { color:var(--muted); font-size:14px; }
   details { margin-top:16px; } pre { overflow:auto; background:rgba(128,128,128,.1); padding:12px; border-radius:6px; }
@@ -71,7 +75,8 @@
     <label><input type="checkbox" id="simplify" checked> Hide plumbing (IAM attachments, SG rules, associations)</label>
     <label id="tokenLabel" hidden>GitHub token (private repos): <input type="password" id="token" autocomplete="off" size="20"></label>
   </div>
-  <div id="status"></div><div id="stat" style="color:var(--muted);font-size:14px"></div>
+  <div id="status"></div>
+  <div id="checks" hidden></div><div id="stat" style="color:var(--muted);font-size:14px"></div>
   <div id="view" hidden>
     <div id="tabs" class="tabs"></div>
     <div class="opts">
@@ -155,6 +160,17 @@ async function draw() {
     const el = $('out').querySelector('svg');
     if ($('fit').checked && el) { el.removeAttribute('height'); el.style.width = '100%'; el.style.height = 'auto'; }
   } catch (e) { $('out').textContent = 'Could not draw this view: ' + e.message; }
+}
+
+function showChecks(checks) {
+  const box = $('checks');
+  if (!checks?.length) { box.hidden = true; return; }
+  const li = (c) => `<li class="${c.level}">${H(c.text)}</li>`;
+  const attention = checks.filter((c) => c.level === 'error' || c.level === 'warn');
+  const rest = checks.filter((c) => c.level === 'info' || c.level === 'ok');
+  box.innerHTML = (attention.length ? `<ul>${attention.map(li).join('')}</ul>` : '')
+    + (rest.length ? `<details ${attention.length ? '' : 'open'}><summary>${attention.length ? `${rest.length} more check${rest.length === 1 ? '' : 's'}` : 'Checks'}</summary><ul>${rest.map(li).join('')}</ul></details>` : '');
+  box.hidden = false;
 }
 
 const MEANING = {
@@ -246,12 +262,14 @@ $('q').addEventListener('input', () => { clearTimeout($('q')._t); $('q')._t = se
 
 // ---- upload zip -------------------------------------------------------------------------------
 let zipFiles = null; // [{ path, content }] from the chosen zip
+let zipIgnored = {};
 async function loadZip(file) {
   $('status').className = ''; $('status').textContent = `Reading ${file.name}…`;
   try {
-    const { files, skipped } = await unzipTerraform(await file.arrayBuffer());
-    if (!files.length) throw new Error('No .tf files found in that zip');
+    const { files, skipped, ignored } = await unzipTerraform(await file.arrayBuffer());
+    if (!files.length) throw new Error(`No .tf files found in that zip${ignored.tfjson ? ` (it has ${ignored.tfjson} .tf.json files, which are not supported)` : ''}`);
     zipFiles = files;
+    zipIgnored = { ...ignored, skipped: skipped.length };
     $('zipdir').replaceChildren();               // the server proposes the folder on the first run
     $('zipdirLabel').hidden = true;
     $('zipnote').textContent = `${files.length} .tf file${files.length === 1 ? '' : 's'} read from ${file.name}${skipped.length ? ` (${skipped.length} skipped: too large or unsupported)` : ''}. Only their text is sent to be analysed; nothing is stored.`;
@@ -259,6 +277,7 @@ async function loadZip(file) {
   } catch (e) {
     zipFiles = null;
     $('status').className = 'err'; $('status').textContent = e.message;
+    $('checks').hidden = true; $('view').hidden = true; $('out').textContent = ''; $('legend').textContent = '';   // don't leave the previous project on screen
   }
 }
 $('zip').addEventListener('change', (e) => { const f = e.target.files[0]; if (f) loadZip(f); });
@@ -275,10 +294,11 @@ async function run() {
     const res = mode() === 'paste'
       ? await fetch(`/api/diagram?${qs}`, { method: 'POST', body: JSON.stringify({ code: $('code').value }) })
       : mode() === 'zip'
-      ? await fetch(`/api/diagram?${qs}`, { method: 'POST', body: JSON.stringify({ files: zipFiles, root: $('zipdir').options.length ? $('zipdir').value : undefined }) })
+      ? await fetch(`/api/diagram?${qs}`, { method: 'POST', body: JSON.stringify({ files: zipFiles, ignored: zipIgnored, root: $('zipdir').options.length ? $('zipdir').value : undefined }) })
       : await fetch(`/api/diagram?repo=${encodeURIComponent($('repo').value)}&${qs}`, { headers: $('token').value ? { 'x-github-token': $('token').value } : {} });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
+    showChecks(data.checks);
     const { edges } = data.graph;
     const nodes = data.graph.nodes.filter((n) => n.kind !== 'module' || !n.expanded);
     const mods = data.graph.nodes.filter((n) => n.kind === 'module' && n.expanded).length;
@@ -298,6 +318,7 @@ async function run() {
     if (mode() === 'repo') history.replaceState(null, '', '?repo=' + encodeURIComponent($('repo').value));
   } catch (e) {
     $('status').className = 'err'; $('status').textContent = e.message;
+    $('checks').hidden = true;
   } finally { $('go').disabled = false; }
 }
 $('f').addEventListener('submit', (e) => { e.preventDefault(); run(); });

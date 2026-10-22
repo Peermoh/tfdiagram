@@ -28,6 +28,12 @@ Private repos or rate limits: paste a GitHub token in the page (sent per request
 ## Input
 Paste `.tf` code or give a GitHub URL; pick AWS, Azure, or auto-detect.
 
+## Checks
+Every run (zip, GitHub URL, pasted code) ends with a checklist under the status line: problems first, then notes.
+It reports what was read, the folder drawn, resource/module counts, local modules followed or missing from the zip
+(with how to fix it), registry/git modules that stay single boxes, other providers or mixed AWS+Azure, variables with
+no value, `.tf.json` / `.tfvars` files that are not read, and skipped files. See `lib/validate.js`.
+
 ## Not yet
 Cloud icons, `count`/`for_each` expansion, registry (non-local) module internals, GCP, plan diffs.
 

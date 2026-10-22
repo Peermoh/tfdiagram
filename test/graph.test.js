@@ -689,3 +689,50 @@ test('settings: boolean expressions are evaluated, hidden helper resources are n
   assert.equal(rows.availability_zone, 'Availability zones available');
   assert.equal(rows.cidr_block, '(computed)');
 });
+
+test('cidr: ranges from a module call\'s for-expressions, slice() lengths and element(var.list, ...)', async () => {
+  const { arith, listLength, expandFor } = await import('../lib/cidr.js');
+  const { loadTree } = await import('../lib/modules.js');
+  assert.equal(arith('0 + 48'), 48);
+  assert.equal(arith('(1+2)*4-3'), 9);
+  assert.equal(arith('k + 1'), null);
+  assert.equal(listLength('["a","b",["c","d"]]'), 3);
+  assert.equal(listLength('slice(data.x.names, 0, 3)'), 3);
+  assert.equal(listLength('range(4)'), 4);
+  assert.equal(listLength('var.unknown'), null);
+  assert.equal(expandFor('[for k, v in ["a","b"] : cidrsubnet("10.0.0.0/16", 8, k + 10)]'), '["10.0.10.0/24", "10.0.11.0/24"]');
+  assert.equal(expandFor('[for k, v in var.x : cidrsubnet("10.0.0.0/16", 8, k)]'), '[for k, v in var.x : cidrsubnet("10.0.0.0/16", 8, k)]');   // unknown length: untouched
+
+  const dirs = {
+    ex: [{ path: 'ex/main.tf', content: `
+      locals {
+        vpc_cidr = "10.0.0.0/16"
+        azs      = slice(data.aws_availability_zones.available.names, 0, 3)
+      }
+      module "vpc" {
+        source          = "../"
+        private_subnets = [for k, v in local.azs : cidrsubnet(local.vpc_cidr, 4, k)]
+        public_subnets  = [for k, v in local.azs : cidrsubnet(local.vpc_cidr, 8, k + 48)]
+        db_subnets      = ["10.0.200.0/24"]
+      }` }],
+    '': [{ path: 'main.tf', content: `
+      variable "private_subnets" { default = [] }
+      variable "public_subnets"  { default = [] }
+      variable "db_subnets"      { default = [] }
+      resource "aws_subnet" "private" {
+        count      = length(var.private_subnets)
+        cidr_block = element(concat(var.private_subnets, [""]), count.index)
+      }
+      resource "aws_subnet" "public" {
+        cidr_block = element(concat(var.public_subnets, [""]), count.index)
+      }
+      resource "aws_subnet" "db" {
+        cidr_block = var.db_subnets[0]
+      }` }],
+  };
+  const g = buildGraph(await loadTree('ex', async (d) => dirs[d] ?? []));
+  const c = (id) => g.nodes.find((n) => n.id === id).cidrs;
+  assert.deepEqual(c('module.vpc.aws_subnet.private'), ['10.0.0.0/20', '10.0.16.0/20', '10.0.32.0/20']);
+  assert.deepEqual(c('module.vpc.aws_subnet.public'), ['10.0.48.0/24', '10.0.49.0/24', '10.0.50.0/24']);
+  assert.deepEqual(c('module.vpc.aws_subnet.db'), ['10.0.200.0/24']);
+});
