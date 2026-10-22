@@ -39,6 +39,9 @@ and import them (the repo does not ship them):
    `public/icons/manifest.json`, and prints which types had no match (those keep the built-in icon).
 4. Commit `public/icons/` and push; Cloudflare redeploys. Diagrams show the official icons, unmodified.
 
+   No computer? In GitHub open Actions > "Import official icons" > Run workflow, paste the direct download link of each
+   pack (copy the link address of the Download button), and it does steps 2-4 for you and shows the match report.
+
 Read the vendors' icon terms first (they restrict modifying the icons and implying endorsement, and may restrict
 redistributing the packs; keep the repo private if in doubt). The page shows a short attribution note whenever
 official icons are installed. Delete the files in `public/icons/` and reset `manifest.json` to `{}` to go back.

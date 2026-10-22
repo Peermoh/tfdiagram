@@ -1,0 +1,72 @@
+# Imports the official AWS / Azure icon packs without needing a computer: run it from the Actions tab
+# (Run workflow), paste the direct download link of each pack, and it downloads them, matches the files to
+# Terraform resource types, and commits public/icons/ to main (Cloudflare then redeploys).
+#
+# Where to get the links (right-click / long-press the Download button > Copy link address):
+#   AWS:   https://aws.amazon.com/architecture/icons/                    (Asset Package zip)
+#   Azure: https://learn.microsoft.com/azure/architecture/icons/        (SVG zip)
+# The icons stay subject to the vendors' icon terms.
+name: Import official icons
+
+on:
+  workflow_dispatch:
+    inputs:
+      aws_url:
+        description: Direct link to the AWS Architecture Icons zip (optional)
+        required: false
+      azure_url:
+        description: Direct link to the Azure icons zip (optional)
+        required: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: import-icons
+  cancel-in-progress: false
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    env:
+      AWS_URL: ${{ inputs.aws_url }}
+      AZURE_URL: ${{ inputs.azure_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Download and import
+        run: |
+          set -euo pipefail
+          args=()
+
+          fetch() { # name url
+            local name="$1" url="$2"
+            # only the vendors' own download hosts
+            if ! echo "$url" | grep -Eiq '^https://([a-z0-9-]+\.)*(amazon\.com|awsstatic\.com|microsoft\.com|azureedge\.net|azure\.com|windows\.net)/'; then
+              echo "::error::$name link must be an https link on an AWS or Microsoft download host, got: $url"; exit 1
+            fi
+            curl -fsSL --max-time 300 --max-filesize 200000000 -A "Mozilla/5.0" -o "$RUNNER_TEMP/$name.zip" "$url"
+            mkdir -p "$RUNNER_TEMP/$name"
+            unzip -q -o "$RUNNER_TEMP/$name.zip" -d "$RUNNER_TEMP/$name"
+            echo "$name: $(find "$RUNNER_TEMP/$name" -iname '*.svg' | wc -l) SVG files"
+          }
+
+          if [ -n "${AWS_URL:-}" ]; then fetch aws "$AWS_URL"; args+=(--aws "$RUNNER_TEMP/aws"); fi
+          if [ -n "${AZURE_URL:-}" ]; then fetch azure "$AZURE_URL"; args+=(--azure "$RUNNER_TEMP/azure"); fi
+          if [ ${#args[@]} -eq 0 ]; then echo "::error::Paste at least one download link."; exit 1; fi
+
+          node scripts/import-icons.mjs "${args[@]}" | tee "$RUNNER_TEMP/report.txt"
+          { echo '### Icon import report'; echo; echo '```'; cat "$RUNNER_TEMP/report.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/icons
+          if git diff --cached --quiet; then echo "No icon changes."; exit 0; fi
+          git commit -m "Import official AWS/Azure icons"
+          git push
