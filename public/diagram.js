@@ -135,6 +135,12 @@ export function abbrFor(type) {
   return (words.length === 1 ? words[0].slice(0, 3) : words.map((w) => w[0]).join('').slice(0, 4)).toUpperCase();
 }
 
+// Official vendor icons, if installed (scripts/import-icons.mjs writes public/icons/manifest.json).
+// { aws_vpc: 'aws/aws_vpc.svg', ... }; anything missing keeps the drawn icon above.
+let OFFICIAL = {};
+export function setOfficialIcons(manifest) { OFFICIAL = manifest ?? {}; }
+export const hasOfficialIcons = () => Object.keys(OFFICIAL).length > 0;
+
 const glyph = (icon) => (icon === 'lambda'
   ? '<text x="12" y="19" text-anchor="middle" font-size="20" font-weight="700" fill="#fff" stroke="none">λ</text>'
   : `<path d="${P[icon] ?? P.cube}"/>`);
@@ -231,13 +237,18 @@ export function renderDiagram(graph, { direction = 'LR', link = null } = {}) {
     const icon = b.hdr || n.kind === 'module' ? 'cube' : iconFor(n.type);
     const code = b.hdr || n.kind === 'module' ? 'MOD' : abbrFor(n.type);
     const href = !grouped && link && n.file ? `https://github.com/${link.owner}/${link.repo}/blob/${link.branch}/${n.file.split('/').map(encodeURIComponent).join('/')}${n.line ? `#L${n.line}` : ''}` : null;
+    const official = !b.hdr && n.kind !== 'module' && OFFICIAL[n.type];
+    // official artwork is shown as supplied (unmodified); the layer colour stays on the card border
+    const tile = official
+      ? `<image href="icons/${esc(official)}" x="4" y="${h / 2 - 21}" width="42" height="42" preserveAspectRatio="xMidYMid meet"/>`
+      : `<rect x="1" y="1" width="46" height="${h - 2}" rx="8" fill="${color}"/><rect x="30" y="1" width="17" height="${h - 2}" fill="${color}"/>
+<g transform="translate(11 ${h / 2 - 25})" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${glyph(icon)}</g>
+<text x="24" y="${h / 2 + 21}" text-anchor="middle" font-size="9.5" font-weight="700" fill="#fff" letter-spacing=".3">${esc(code)}</text>`;
     const badge = grouped ? `<circle cx="${b.cw}" cy="0" r="12" fill="${color}" stroke="var(--card)" stroke-width="2.5"/><text x="${b.cw}" y="4.5" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">${n.count}</text>` : '';
     const card = `<g transform="translate(${x} ${y})"${n.ghost ? ' opacity="0.5"' : ''}${grouped ? ` data-expand="${esc(n.type)}" style="cursor:pointer"` : ''}>
 <title>${esc(full)}</title>
 <rect width="${b.cw}" height="${h}" rx="9" fill="var(--card)" stroke="${color}" stroke-width="1.6"${n.ghost ? ' stroke-dasharray="5 4"' : ''}/>
-<rect x="1" y="1" width="46" height="${h - 2}" rx="8" fill="${color}"/><rect x="30" y="1" width="17" height="${h - 2}" fill="${color}"/>
-<g transform="translate(11 ${h / 2 - 25})" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${glyph(icon)}</g>
-<text x="24" y="${h / 2 + 21}" text-anchor="middle" font-size="9.5" font-weight="700" fill="#fff" letter-spacing=".3">${esc(code)}</text>
+${tile}
 <text x="58" y="${h === H_CIDR ? 27 : h / 2 - 3}" font-size="13" font-weight="700" fill="var(--fg)">${esc(clip(title, 22))}</text>
 <text x="58" y="${h === H_CIDR ? 44 : h / 2 + 14}" font-size="12" fill="var(--muted)">${esc(clip(names, 26))}</text>
 ${n.cidrs?.length ? `<text x="58" y="63" font-size="12" font-family="ui-monospace, monospace" fill="${color}" font-weight="600">${esc(clip(cidrText(n.cidrs), 26))}</text>` : ''}

@@ -66,14 +66,21 @@
   <div id="legend" class="legend"></div>
   <div id="out"></div>
   <details><summary>Mermaid source</summary><pre id="src"></pre></details>
+  <p id="iconNote" class="legend" hidden>AWS and Azure service icons are the property of Amazon Web Services and Microsoft and are shown unmodified, as supplied by them, to label diagrams. This tool is not affiliated with or endorsed by either company.</p>
 </main>
 <script src="vendor/dagre.min.js"></script>
 <script type="module">
 
 import { COLORS, filterGraph, summarize, toMermaid } from './render.js';
-import { renderDiagram } from './diagram.js';
+import { hasOfficialIcons, renderDiagram, setOfficialIcons } from './diagram.js';
 const $ = (id) => document.getElementById(id);
 let lastData = null;
+// Official AWS / Azure icons are optional: present only after scripts/import-icons.mjs has been run.
+fetch('icons/manifest.json').then((r) => (r.ok ? r.json() : {})).catch(() => ({})).then((m) => {
+  setOfficialIcons(m);
+  $('iconNote').hidden = !hasOfficialIcons();
+  if (lastData) draw();
+});
 let layer = ''; // '' = all layers
 const mode = () => document.querySelector('input[name=mode]:checked').value;
 function syncMode() {

@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "start": "node server.js",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "icons": "node scripts/import-icons.mjs"
   },
   "engines": {
     "node": ">=20"

@@ -25,6 +25,24 @@ Paste `.tf` code or give a GitHub URL; pick AWS, Azure, or auto-detect.
 ## Not yet
 Cloud icons, `count`/`for_each` expansion, registry (non-local) module internals, GCP, plan diffs.
 
+## Official AWS and Azure icons (optional)
+The app draws its own icons by default. To use the vendors' official artwork instead, download the packs yourself
+and import them (the repo does not ship them):
+
+1. AWS Architecture Icons: https://aws.amazon.com/architecture/icons/ (the Asset Package zip)
+2. Azure icons: https://learn.microsoft.com/azure/architecture/icons/ (the SVG zip)
+3. Unzip both, then run:
+
+       npm run icons -- --aws <unzipped AWS folder> --azure <unzipped Azure folder>
+
+   It matches files to Terraform resource types by name, copies the matches to `public/icons/`, writes
+   `public/icons/manifest.json`, and prints which types had no match (those keep the built-in icon).
+4. Commit `public/icons/` and push; Cloudflare redeploys. Diagrams show the official icons, unmodified.
+
+Read the vendors' icon terms first (they restrict modifying the icons and implying endorsement, and may restrict
+redistributing the packs; keep the repo private if in doubt). The page shows a short attribution note whenever
+official icons are installed. Delete the files in `public/icons/` and reset `manifest.json` to `{}` to go back.
+
 ## Deploy (Cloudflare Workers)
 `wrangler.jsonc` serves `public/` as static assets and routes `/api/*` to `worker.js`.
 In the Cloudflare dashboard: Workers & Pages > Create > Import a repository > this repo,
