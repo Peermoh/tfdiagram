@@ -53,6 +53,7 @@
   .hit h3 { margin:0 0 4px; font-size:16px; } .hit p { margin:4px 0 8px; color:var(--muted); } .hit .meta { font-size:13px; color:var(--muted); }
   .hit .topics span { display:inline-block; border:1px solid var(--line); border-radius:10px; padding:0 8px; margin:0 6px 4px 0; font-size:12px; color:var(--muted); }
   #tosearch { margin:0 0 8px; background:transparent; color:var(--fg); border:1px solid var(--line); padding:6px 12px; font-size:14px; }
+  #result[hidden], #f[hidden] { display:none; }
   #backbar[hidden] { display:none; }
   #backbar button { padding:8px 16px; } #backlabel { color:var(--muted); font-size:14px; }
   details { margin-top:16px; } pre { overflow:auto; background:rgba(128,128,128,.1); padding:12px; border-radius:6px; }
@@ -99,8 +100,9 @@
     <label id="tokenLabel" hidden>GitHub token (private repos): <input type="password" id="token" autocomplete="off" size="20"></label>
   </div>
   <button type="button" id="tosearch" hidden>← Back to search results</button>
-  <label id="repodirLabel" hidden style="display:block;margin:6px 0;color:var(--muted);font-size:14px">Folder to draw: <select id="repodir" style="max-width:100%"></select></label>
   <div id="status"></div>
+  <div id="result">
+  <label id="repodirLabel" hidden style="display:block;margin:6px 0;color:var(--muted);font-size:14px">Folder to draw: <select id="repodir" style="max-width:100%"></select></label>
   <div id="checks" hidden></div><div id="stat" style="color:var(--muted);font-size:14px"></div>
   <div id="view" hidden>
     <div id="tabs" class="tabs"></div>
@@ -117,6 +119,7 @@
   <div id="backbar" hidden><button type="button" id="back">← Back</button><span id="backlabel"></span></div>
   <div id="out"></div>
   <details><summary>Mermaid source</summary><pre id="src"></pre></details>
+  </div>
   <div id="panel" hidden></div>
   <p id="iconNote" class="legend" hidden>AWS and Azure service icons are the property of Amazon Web Services and Microsoft and are shown unmodified, as supplied by them, to label diagrams. This tool is not affiliated with or endorsed by either company.</p>
 </main>
@@ -128,6 +131,11 @@ import { COLORS, filterGraph, friendlyType, summarize, toMermaid } from './rende
 import { hasOfficialIcons, renderDiagram, setOfficialIcons } from './diagram.js';
 const $ = (id) => document.getElementById(id);
 let lastData = null;
+// Search GitHub has two pages: the result list, and the diagram of the repo you pressed Draw on. Back returns to the list.
+let searchView = 'list';
+let listScroll = 0;
+let lastSearchStatus = '';
+let runSeq = 0; // a diagram that arrives after you went Back is ignored
 let shownNodes = new Map(); // id -> node in the diagram currently drawn
 let shownEdges = [];
 // Official AWS / Azure icons are optional: present only after scripts/import-icons.mjs has been run.
@@ -144,6 +152,8 @@ function syncMode() {
   $('tokenLabel').hidden = m !== 'repo' && m !== 'search';
   $('go').textContent = m === 'search' ? 'Search' : 'Generate';
   $('code').required = m === 'paste'; $('repo').required = m === 'repo';
+  if (m !== 'search') searchView = 'list';
+  applyView();
 }
 document.querySelectorAll('input[name=mode]').forEach((r) => r.addEventListener('change', () => {
   syncMode();
@@ -326,7 +336,8 @@ async function search(page) {
     $('sclearbar').hidden = false;
     if (data.hasMore) box.insertAdjacentHTML('beforeend', '<p class="more"><button type="button" id="more">Show more</button></p>');
     const what = $('sq').value.trim() ? '' : `popular Terraform repositories${$('scloud').value === 'any' ? '' : ` for ${$('scloud').selectedOptions[0].text}`}: `;
-    $('status').textContent = data.total ? `${what}${fmt.format(data.total)} repositor${data.total === 1 ? 'y' : 'ies'} found${data.total > 1000 ? ' (GitHub shows the first 1,000)' : ''}` : 'No repositories found. Try other words, or untick "Only Terraform repos".';
+    lastSearchStatus = data.total ? `${what}${fmt.format(data.total)} repositor${data.total === 1 ? 'y' : 'ies'} found${data.total > 1000 ? ' (GitHub shows the first 1,000)' : ''}` : 'No repositories found. Try other words, or untick "Only Terraform repos".';
+    $('status').textContent = lastSearchStatus;
   } catch (e) {
     $('status').className = 'err'; $('status').textContent = e.message;
   } finally { $('go').disabled = false; }
@@ -338,7 +349,8 @@ function clearSearch() {
   $('sq').value = '';
   $('results').replaceChildren();
   $('sclearbar').hidden = true;
-  $('tosearch').hidden = true;
+  lastSearchStatus = '';
+  searchView = 'list'; applyView();
   $('go').disabled = false;
   $('status').className = ''; $('status').textContent = '';
   $('sq').focus();
@@ -352,19 +364,32 @@ $('results').addEventListener('click', (e) => {
   if (e.target.id === 'more') { search(searchPage + 1); return; }
   const full = e.target.dataset?.draw;
   if (!full) return;
+  listScroll = window.scrollY;                      // so Back puts you where you were in the list
   repoDirFor = ''; $('repodir').replaceChildren(); $('repodirLabel').hidden = true;
   $('repo').value = `https://github.com/${full}`;
-  $('tosearch').hidden = false;
-  run().then(() => $('status').scrollIntoView({ block: 'start' }));   // the radio stays on Search GitHub and the results stay where they are
+  searchView = 'diagram'; applyView();              // only this repo's diagram is shown; the radio stays on Search GitHub
+  $('panel').hidden = true; $('view').hidden = true; $('checks').hidden = true; $('out').textContent = ''; $('legend').textContent = '';
+  window.scrollTo({ top: 0 });
+  run();
 });
 $('tosearch').addEventListener('click', () => {
-  $('tosearch').hidden = true;
-  $('results').scrollIntoView({ block: 'start' });
+  runSeq++;                                         // forget a diagram that is still loading
+  searchView = 'list'; applyView();
+  $('status').className = ''; $('status').textContent = lastSearchStatus;
+  window.scrollTo({ top: listScroll });
 });
 $('repodir').addEventListener('change', () => run());
-$('repo').addEventListener('input', () => { $('tosearch').hidden = true; });
 
 // ---- upload zip -------------------------------------------------------------------------------
+function applyView() {
+  const inSearch = mode() === 'search';
+  const diagram = inSearch && searchView === 'diagram';
+  $('result').hidden = inSearch && !diagram;          // list page: just the list
+  $('searchbox').hidden = !(inSearch && !diagram);    // diagram page: just the diagram
+  $('f').hidden = diagram;
+  $('tosearch').hidden = !diagram;
+  if (inSearch && !diagram) $('panel').hidden = true;
+}
 let repoDirFor = ''; // the repo URL the folder dropdown was filled for
 let zipFiles = null; // [{ path, content }] from the chosen zip
 let zipIgnored = {};
@@ -392,6 +417,7 @@ for (const ev of ['dragleave', 'drop']) $('zipdrop').addEventListener(ev, () => 
 $('zipdrop').addEventListener('drop', (e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) loadZip(f); });
 
 async function run() {
+  const mine = ++runSeq;
   const m = mode() === 'search' ? 'repo' : mode();          // drawing from the search results is a GitHub-repo run; the radio stays on Search
   if (m === 'zip' && !zipFiles) { $('status').className = 'err'; $('status').textContent = 'Choose a .zip first'; return; }
   $('go').disabled = true; $('status').className = ''; $('status').textContent = m === 'repo' ? 'Fetching Terraform files…' : 'Parsing…';
@@ -403,6 +429,7 @@ async function run() {
       ? await fetch(`/api/diagram?${qs}`, { method: 'POST', body: JSON.stringify({ files: zipFiles, ignored: zipIgnored, root: $('zipdir').options.length ? $('zipdir').value : undefined }) })
       : await fetch(`/api/diagram?repo=${encodeURIComponent($('repo').value)}${$('repodir').options.length && repoDirFor === $('repo').value ? `&root=${encodeURIComponent($('repodir').value)}` : ''}&${qs}`, { headers: $('token').value ? { 'x-github-token': $('token').value } : {} });
     const data = await res.json();
+    if (mine !== runSeq) return;                      // you went Back while it was loading
     if (!res.ok) throw new Error(data.error);
     showChecks(data.checks);
     const { edges } = data.graph;
