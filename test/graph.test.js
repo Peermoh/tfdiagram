@@ -596,3 +596,75 @@ test('hidden association resources still link the things they connect', () => {
   assert.ok(has2('aws_subnet.s', 'aws_route_table.rt'));              // route table flows into the subnet
   assert.ok(has2('aws_lambda_function.fn', 'aws_s3_bucket.b'));       // first named is the consumer when there is no hint
 });
+
+test('details read plain values and say "varies" instead of printing code', () => {
+  const g = buildGraph([{ path: 'm.tf', content: `
+    variable "create"  { default = true }
+    variable "use_prefix" { default = true }
+    variable "name"    { default = "flow-role" }
+    variable "ingress_rules" { default = [] }
+    variable "routes"  { default = [] }
+    resource "aws_iam_role" "r" {
+      count       = var.create ? 1 : 0
+      name        = var.use_prefix ? null : var.name
+      name_prefix = var.use_prefix ? "\${var.name}-" : null
+      path        = null
+      permissions_boundary = var.create ? merge(var.a, var.b) : null
+      max_session_duration = var.create ? 3600 : 7200
+    }
+    resource "aws_default_security_group" "d" {
+      dynamic "ingress" {
+        for_each = var.ingress_rules
+        content {
+          self        = lookup(ingress.value, "self", null)
+          cidr_blocks = compact(split(",", lookup(ingress.value, "cidr_blocks", "")))
+        }
+      }
+    }
+    resource "aws_security_group" "loop" {
+      dynamic "ingress" {
+        for_each = var.unknown_rules
+        content {
+          from_port   = ingress.value.port
+          to_port     = ingress.value.port
+          protocol    = "tcp"
+          cidr_blocks = ingress.value.cidrs
+        }
+      }
+    }
+    resource "aws_default_route_table" "t" {
+      dynamic "route" {
+        for_each = var.routes
+        content {
+          cidr_block = route.value.cidr_block
+        }
+      }
+    }` }]);
+  const node = (id) => g.nodes.find((n) => n.id === id);
+  const rows = Object.fromEntries(node('aws_iam_role.r').details.rows.map((r) => [r.k, r.value]));
+  assert.equal(rows.name, undefined);                       // resolves to null: not shown
+  assert.equal(rows.name_prefix, 'flow-role-');             // condition + interpolated default resolved
+  assert.equal(rows.path, undefined);
+  assert.equal(rows.max_session_duration, '3600');
+  assert.equal(rows.permissions_boundary, "(computed)");             // function call: not code
+  assert.deepEqual(node('aws_default_security_group.d').details.rows, []);     // loop over [] -> no rules
+  assert.equal(node('aws_default_security_group.d').summary, 'no rules');
+  assert.deepEqual(node('aws_default_route_table.t').details.rows, []);
+  assert.equal(node('aws_default_route_table.t').summary, 'no routes');
+  const loop = node('aws_security_group.loop').details.rows;
+  assert.deepEqual(loop.map((r) => [r.proto, r.ports, r.peers[0], r.dynamic]), [['tcp', 'varies', 'varies', true]]);
+  assert.match(loop[0].note, /one per item of var\.unknown_rules/);
+});
+
+test('conditionals: simple boolean logic is evaluated, anything else stays computed', async () => {
+  const { simplify, isComputed } = await import('../lib/details.js');
+  assert.equal(simplify('(false) && (x) ? true : null'), 'null');
+  assert.equal(simplify('true ? "a" : "b"'), '"a"');
+  assert.equal(simplify('!false ? 1 : 2'), '1');
+  assert.equal(simplify('("x" == "x") ? 5 : 6'), '5');
+  assert.equal(simplify('("x" != "x") ? 5 : 6'), '6');
+  assert.equal(simplify('(1 == 2) || true ? 7 : 8'), '7');
+  assert.equal(simplify('"${("x")}-"'), '"x-"');
+  assert.ok(isComputed(simplify('var.unknown ? 1 : 2')));            // unknown condition: not a guess
+  assert.ok(isComputed('merge(a, b)') && isComputed('route.value.cidr') && !isComputed('"plain"'));
+});
