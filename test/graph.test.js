@@ -1093,3 +1093,41 @@ test('terraform.tfvars next to the drawn folder overrides variable defaults', as
   const without = await post({ files: files.slice(0, 1) });
   assert.equal(without.graph.nodes.length, 0);
 });
+
+test('architecture arrows say which security-group rule allows them', async () => {
+  const fs = await import('node:fs');
+  const vm = await import('node:vm');
+  if (!globalThis.dagre) vm.runInThisContext(fs.readFileSync(new URL('../public/vendor/dagre.min.js', import.meta.url), 'utf8'));
+  const { renderArchitecture } = await import('../public/diagram.js');
+  const g = buildGraph([{ path: 'a.tf', content: `
+    resource "aws_vpc" "v" { cidr_block = "10.0.0.0/16" }
+    resource "aws_security_group" "alb" {
+      vpc_id = aws_vpc.v.id
+      ingress {
+        from_port = 443
+        to_port = 443
+        protocol = "tcp"
+        cidr_blocks = ["0.0.0.0/0"]
+      }
+    }
+    resource "aws_security_group" "app" {
+      vpc_id = aws_vpc.v.id
+      ingress {
+        from_port = 8080
+        to_port = 8080
+        protocol = "tcp"
+        security_groups = [aws_security_group.alb.id]
+      }
+    }
+    resource "aws_security_group" "db" { vpc_id = aws_vpc.v.id }
+    resource "aws_lb" "alb" { security_groups = [aws_security_group.alb.id] }
+    resource "aws_instance" "app" { vpc_security_group_ids = [aws_security_group.app.id] }
+    resource "aws_db_instance" "db" {
+      vpc_security_group_ids = [aws_security_group.db.id]
+      tags = { who = aws_instance.app.id }
+    }` }]);
+  const svg = renderArchitecture(g);
+  assert.match(svg, /TCP 443/);                       // internet -> load balancer: open
+  assert.match(svg, /TCP 8080 from Security group alb/);   // load balancer -> instance
+  assert.match(svg, /✗ no rule/);                      // instance -> database: db group allows nothing
+});

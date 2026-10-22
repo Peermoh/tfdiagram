@@ -335,9 +335,10 @@ export function renderArchitecture(graph, { animate = true, direction = 'LR' } =
     if (hidden(n)) continue;
     const box = home(n.id);
     const key = `${box ?? '#cloud'}|${n.type}|${n.kind}`;
-    if (!tileNodes.has(key)) tileNodes.set(key, { id: key, box: box ?? '#cloud', type: n.type, kind: n.kind, names: [], total: 0, ref: n });
+    if (!tileNodes.has(key)) tileNodes.set(key, { id: key, box: box ?? '#cloud', type: n.type, kind: n.kind, names: [], ids: [], total: 0, ref: n });
     const t = tileNodes.get(key);
     t.names.push(n.label ?? n.name);
+    t.ids.push(n.id);
     t.total += n.kind === 'group' ? n.count : n.instances ?? 1;
     tileOf.set(n.id, key);
   }
@@ -393,6 +394,43 @@ export function renderArchitecture(graph, { animate = true, direction = 'LR' } =
     for (const a of u) for (const b of u) if (a < b && klass(byId.get(a).type) !== klass(byId.get(b).type)) add(a, b, false);
   }
 
+  // Which security-group rules let this traffic in? Looks at the receiving resources' groups: an inbound rule
+  // naming one of the sender's groups, or open to a CIDR. Groups whose rules can't be read say nothing.
+  const sgsOf = (ids) => ids.flatMap((id) => (out.get(id) ?? []).filter((to) => /security_group$/.test(byId.get(to)?.type ?? '')).map((to) => byId.get(to)));
+  const peerNames = (sg) => [`${friendlyType(sg.type)} ${sg.label ?? sg.name}`, `${friendlyType(sg.type)} ${sg.name}`];
+  const ruleInfo = (from, to) => {
+    const target = tileNodes.get(to);
+    const rec = sgsOf(target.ids).filter((sg) => sg.details?.kind === 'rules');
+    if (!rec.length) return null;
+    const sender = from === '#net' ? [] : sgsOf(tileNodes.get(from).ids);
+    const senderNames = new Set(sender.flatMap(peerNames));
+    const hits = [];
+    for (const sg of rec) {
+      for (const r of sg.details.rows) {
+        if (r.dir !== 'in' || /deny/i.test(r.action ?? '')) continue;
+        const named = r.peers.filter((x) => senderNames.has(x));
+        const open = r.peers.filter((x) => x === '0.0.0.0/0' || x === '::/0');
+        const cidr = r.peers.filter((x) => /^[\d.:a-f]+\/\d+$/i.test(x) && !open.includes(x));
+        const ports = `${r.proto && r.proto !== 'all' ? r.proto.toUpperCase() + ' ' : ''}${r.ports || 'all'}`;
+        if (named.length) hits.push({ kind: 'sg', ports, text: `${ports} from ${named.join(', ')} (inbound rule on ${sg.label ?? sg.name})` });
+        else if (open.length) hits.push({ kind: 'open', ports, text: `${ports} from anywhere ${open.join(', ')} (inbound rule on ${sg.label ?? sg.name})` });
+        else if (cidr.length && from !== '#net') hits.push({ kind: 'cidr', ports, text: `${ports} from ${cidr.join(', ')} (inbound rule on ${sg.label ?? sg.name}; allowed if the sender is in that range)` });
+      }
+    }
+    if (from === '#net' && !hits.some((h) => h.kind === 'open')) hits.length = 0;
+    const top = hits.find((h) => h.kind === 'sg') ?? hits.find((h) => h.kind === 'open') ?? hits[0];
+    if (!top) return { kind: 'none', ports: 'no rule', text: `No inbound rule on ${rec.map((x) => x.label ?? x.name).join(', ')} names ${from === '#net' ? 'the internet' : 'the sender\'s security group'}. It may be allowed another way (CIDR from another group, network ACL, or rules we can't read), so check the code.` };
+    return { kind: top.kind, ports: [...new Set(hits.map((h) => h.ports))].join(', '), text: hits.map((h) => h.text).join('\n') };
+  };
+
+  // a rule that names another resource's security group is a real traffic path: draw it even when the code has no other link
+  for (const ta of tileNodes.values()) {
+    for (const tb of tileNodes.values()) {
+      if (ta === tb || flows.has(`${ta.id}>${tb.id}`) || flows.has(`${tb.id}>${ta.id}`)) continue;
+      if (ruleInfo(ta.id, tb.id)?.kind === 'sg') flows.set(`${ta.id}>${tb.id}`, { from: ta.id, to: tb.id });
+    }
+  }
+
   // an "Internet" tile feeding whatever faces the outside
   const entries = [...tileNodes.values()].filter((t) => klass(t.type) === 0);
   const igw = [...tileNodes.values()].filter((t) => /internet_gateway/.test(t.type));
@@ -432,16 +470,25 @@ export function renderArchitecture(graph, { animate = true, direction = 'LR' } =
     const a = g.node(e.v); const z = g.node(e.w);
     // leave and enter at the icons (middle of the icon row when left to right, its bottom / top when top to bottom), with one bend halfway
     const cy = (n) => (n.net ? n.y - 8 : n.y - TH / 2 + 32);
-    let d;
+    let d; let x1; let y1; let x2; let y2; let m;
     if (lr) {
-      const x1 = a.x + 34; const y1 = cy(a); const x2 = z.x - 38; const y2 = cy(z); const m = (x1 + x2) / 2;
+      x1 = a.x + 34; y1 = cy(a); x2 = z.x - 38; y2 = cy(z); m = (x1 + x2) / 2;
       d = y1 === y2 ? `M${x1} ${y1} L${x2} ${y2}` : `M${x1} ${y1} L${m} ${y1} L${m} ${y2} L${x2} ${y2}`;
     } else {
       const top = (n) => (n.net ? n.y - 48 : n.y - TH / 2);
-      const x1 = a.x; const y1 = a.net ? a.y + 50 : top(a) + TH; const x2 = z.x; const y2 = top(z) - 4; const m = (y1 + y2) / 2;
+      x1 = a.x; y1 = a.net ? a.y + 50 : top(a) + TH; x2 = z.x; y2 = top(z) - 4; m = (y1 + y2) / 2;
       d = x1 === x2 ? `M${x1} ${y1} L${x2} ${y2}` : `M${x1} ${y1} L${x1} ${m} L${x2} ${m} L${x2} ${y2}`;
     }
-    svg.push(`<path d="${d}" fill="none" stroke="${ARCH.flow}" stroke-width="2.2" stroke-linejoin="round" class="flow" marker-end="url(#farr)"/>`);
+    const info = ruleInfo(e.v, e.w);
+    let pill = '';
+    if (info) {
+      const col = { sg: '#16a34a', open: '#d97706', cidr: '#16a34a', none: '#dc2626' }[info.kind];
+      const label = clip(info.ports, 18);
+      const bw = label.length * 6.4 + 16;
+      const [px, py] = lr ? (y1 === y2 ? [(x1 + x2) / 2, y1] : [(m + x2) / 2, y2]) : (x1 === x2 ? [x1, (y1 + y2) / 2] : [x2, (m + y2) / 2]);
+      pill = `<g transform="translate(${px} ${py})"><title>${esc(info.text)}</title><rect x="${-bw / 2}" y="-10" width="${bw}" height="20" rx="10" fill="var(--card)" stroke="${col}" stroke-width="1.6"/><text y="4" text-anchor="middle" font-size="11" font-weight="700" fill="${col}">${info.kind === 'none' ? '✗ ' : ''}${esc(label)}</text></g>`;
+    }
+    svg.push(`<g><path d="${d}" fill="none" stroke="${ARCH.flow}" stroke-width="2.2" stroke-linejoin="round" class="flow" marker-end="url(#farr)"/>${pill}</g>`);
   }
 
   for (const id of g.nodes()) {
