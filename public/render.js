@@ -11,8 +11,25 @@ const FRIENDLY = {
   virtual_network: 'Virtual network', linux_virtual_machine: 'Linux VM', windows_virtual_machine: 'Windows VM', storage_account: 'Storage account',
   key_vault: 'Key vault', network_security_group: 'Network security group', public_ip: 'Public IP', network_interface: 'Network interface',
   resource_group: 'Resource group', mssql_server: 'SQL server', kubernetes_cluster: 'AKS cluster',
+  // Azure
+  route_table_azure: 'Route table', lb_backend_address_pool: 'LB backend pool', lb_probe: 'LB health probe', lb_rule: 'LB rule',
+  lb_nat_rule: 'LB NAT rule', application_gateway: 'Application gateway', firewall: 'Firewall', firewall_policy: 'Firewall policy',
+  bastion_host: 'Bastion host', private_endpoint: 'Private endpoint', private_dns_zone: 'Private DNS zone', dns_zone: 'DNS zone',
+  virtual_network_gateway: 'VPN gateway', local_network_gateway: 'Local network gateway', virtual_network_peering: 'VNet peering',
+  linux_virtual_machine_scale_set: 'Linux VM scale set', windows_virtual_machine_scale_set: 'Windows VM scale set',
+  availability_set: 'Availability set', managed_disk: 'Managed disk', container_registry: 'Container registry', container_app: 'Container app',
+  container_group: 'Container instance', service_plan: 'App Service plan', app_service_plan: 'App Service plan',
+  linux_web_app: 'Linux web app', windows_web_app: 'Windows web app', linux_function_app: 'Function app', windows_function_app: 'Function app',
+  mssql_database: 'SQL database', mssql_managed_instance: 'SQL managed instance', postgresql_flexible_server: 'PostgreSQL server',
+  mysql_flexible_server: 'MySQL server', cosmosdb_account: 'Cosmos DB account', redis_cache: 'Redis cache',
+  servicebus_namespace: 'Service Bus namespace', servicebus_queue: 'Service Bus queue', servicebus_topic: 'Service Bus topic',
+  eventhub_namespace: 'Event Hubs namespace', eventhub: 'Event hub', eventgrid_topic: 'Event Grid topic',
+  log_analytics_workspace: 'Log Analytics workspace', application_insights: 'Application Insights', monitor_action_group: 'Action group',
+  api_management: 'API Management', cdn_profile: 'CDN profile', cdn_endpoint: 'CDN endpoint', traffic_manager_profile: 'Traffic Manager',
+  user_assigned_identity: 'Managed identity', role_assignment: 'Role assignment', application_security_group: 'Application security group',
+  nat_gateway: 'NAT gateway', virtual_network: 'Virtual network', key_vault_secret: 'Key vault secret', storage_container: 'Storage container',
 };
-const ACRONYMS = { vpc: 'VPC', acl: 'ACL', nat: 'NAT', vpn: 'VPN', db: 'DB', rds: 'RDS', ec2: 'EC2', iam: 'IAM', s3: 'S3', ip: 'IP', dns: 'DNS', sql: 'SQL', vm: 'VM', lb: 'LB', eip: 'EIP' };
+const ACRONYMS = { aks: 'AKS', api: 'API', cdn: 'CDN', vpc: 'VPC', acl: 'ACL', nat: 'NAT', vpn: 'VPN', db: 'DB', rds: 'RDS', ec2: 'EC2', iam: 'IAM', s3: 'S3', ip: 'IP', dns: 'DNS', sql: 'SQL', vm: 'VM', lb: 'LB', eip: 'EIP' };
 
 // "network_acl" -> "Network ACL"; unknown types are spelled out ("db_subnet_group" -> "DB subnet group").
 export function friendlyType(type) {
@@ -164,7 +181,7 @@ export function toMermaid(graph, { direction = 'LR', flow = false, colors = fals
       ? `${esc(short(n.type))}${n.count > 1 ? ` ×${n.count}` : ''}<br/><b>${esc(names)}</b>`
       : n.kind === 'module'
       ? `module<br/><b>${esc(n.name)}</b>${n.source ? `<br/>${esc(n.source)}` : ''}`
-      : `${esc(n.type.replace(/^(aws_|azurerm_)/, ''))}<br/><b>${esc(n.name)}</b>`;
+      : `${esc(n.type.replace(/^(aws_|azurerm_)/, ''))}<br/><b>${esc(n.label ?? n.name)}</b>`;
     lines.push(`${pad}${safe(n.id)}["${label}"]`);
   };
   // Expanded modules are subgraphs (edges to the module attach to the subgraph itself).

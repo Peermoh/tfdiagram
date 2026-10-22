@@ -42,13 +42,15 @@ test('azure: detects provider, groups, hides associations', () => {
   const g = buildGraph(az);
   assert.equal(g.provider, 'azure');
   const ids = g.nodes.map((n) => n.id);
-  assert.ok(ids.includes('azurerm_linux_virtual_machine.vm'));
+  assert.ok(ids.includes('azurerm_linux_virtual_machine.main'));
   assert.ok(!ids.includes('azurerm_subnet_network_security_group_association.a'));
-  assert.ok(!ids.includes('azurerm_resource_group.rg'));
-  assert.ok(g.edges.some((e) => e.from === 'azurerm_linux_virtual_machine.vm' && e.to === 'azurerm_network_interface.nic'));
+  assert.ok(!ids.includes('azurerm_resource_group.main'));
+  assert.ok(g.edges.some((e) => e.from === 'azurerm_linux_virtual_machine.main' && e.to === 'azurerm_network_interface.nic'));
   assert.ok(g.edges.some((e) => e.from === 'azurerm_network_interface.nic' && e.to === 'azurerm_subnet.app'));
-  assert.equal(g.nodes.find((n) => n.id === 'azurerm_key_vault.kv').category, 'Security & IAM');
-  assert.match(toMermaid(g), /virtual_machine<br\/><b>vm/);
+  assert.equal(g.nodes.find((n) => n.id === 'azurerm_key_vault.main').category, 'Security & IAM');
+  assert.equal(g.nodes.find((n) => n.id === 'azurerm_linux_web_app.api').category, 'Compute');
+  assert.equal(g.nodes.find((n) => n.id === 'azurerm_mssql_database.app').category, 'Data');
+  assert.match(toMermaid(g), /virtual_machine<br\/><b>vm-web/);
 });
 
 test('explicit provider ignores the other cloud', () => {
@@ -222,4 +224,25 @@ test('friendly type names and plurals', async () => {
   assert.equal(plural('Security group'), 'Security groups');
   assert.equal(plural('Policy'), 'Policies');
   assert.equal(plural('Access'), 'Accesses');
+});
+
+test('azure: icons, friendly names and Azure resource names', async () => {
+  const { iconFor } = await import('../public/diagram.js');
+  const { friendlyType } = await import('../public/render.js');
+  const icons = { azurerm_resource_group: 'folder', azurerm_linux_web_app: 'window', azurerm_service_plan: 'window', azurerm_public_ip: 'gateway', azurerm_lb: 'balancer', azurerm_mssql_database: 'database', azurerm_bastion_host: 'shield', azurerm_log_analytics_workspace: 'doc', azurerm_kubernetes_cluster: 'cube', azurerm_linux_function_app: 'lambda', azurerm_servicebus_queue: 'message', azurerm_private_dns_zone: 'globe' };
+  for (const [t, i] of Object.entries(icons)) assert.equal(iconFor(t), i, t);
+  assert.equal(friendlyType('azurerm_mssql_database'), 'SQL database');
+  assert.equal(friendlyType('azurerm_linux_web_app'), 'Linux web app');
+  assert.equal(friendlyType('azurerm_log_analytics_workspace'), 'Log Analytics workspace');
+  assert.equal(friendlyType('azurerm_some_new_thing'), 'Some new thing');
+
+  const az = [{ path: 'azure.tf', content: readFileSync(new URL('../sample/azure.tf', import.meta.url), 'utf8') }];
+  const g = buildGraph(az);
+  const label = (id) => g.nodes.find((n) => n.id === id).label;
+  assert.equal(label('azurerm_virtual_network.main'), 'vnet-{prefix}');   // generic TF name -> the Azure name
+  assert.equal(label('azurerm_lb.main'), 'lb-web');
+  assert.equal(label('azurerm_subnet.app'), 'app');                       // meaningful TF name is kept
+  assert.equal(label('azurerm_mssql_database.app'), 'app');
+  assert.equal(label('azurerm_network_interface.nic'), 'nic');
+  assert.equal(label('azurerm_service_plan.main'), 'asp-{prefix}');
 });

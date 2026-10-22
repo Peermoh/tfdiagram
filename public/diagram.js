@@ -24,24 +24,29 @@ const P = {
   globe: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18',
   doc: 'M5 4h14v16H5zM8 9h8M8 13h8M8 17h5',
   list: 'M4 7h16M4 12h16M4 17h16',
+  folder: 'M3 6h6l2 2h10v11H3z',
+  window: 'M3 5h18v14H3zM3 9h18M6 7h.01M9 7h.01',
 };
 
 // First match wins. Works for both aws_ and azurerm_ type names.
 const ICON_RULES = [
   [/lambda|function_app|logic_app/, 'lambda'],
+  [/resource_group|resourcegroups/, 'folder'],
+  [/app_service|web_app|static_web_app|service_plan|container_app/, 'window'],
+  [/bastion|private_endpoint|private_link/, 'shield'],
   [/subnet(?!_group)|subnet_group/, 'grid'],
   [/(^|_)(vpc|virtual_network|vnet|virtual_wan|virtual_hub)($|_(?!gateway|peering))/, 'cloud'],
   [/internet_gateway|nat_gateway|vpn|customer_gateway|local_network_gateway|virtual_network_gateway|transit|peering|route|eip|public_ip|network_interface/, 'gateway'],
   [/(^|_)(lb|alb|elb|load_balancer|application_gateway|front_door|frontdoor|traffic_manager)(_|$)/, 'balancer'],
   [/security_group|network_security|acl|firewall|waf|security_center|policy_assignment/, 'shield'],
   [/iam|role|identity|key_vault|kms|secret|cognito|ssm_parameter|acm/, 'lock'],
-  [/s3|storage_account|bucket|blob|efs|ebs|managed_disk/, 'bucket'],
+  [/s3|storage_account|bucket|blob|efs|ebs|managed_disk|backup|recovery/, 'bucket'],
   [/db_|rds|dynamo|cosmos|sql|redis|elasticache|redshift|postgres|mysql|mariadb|docdb|neptune|kusto|opensearch|elasticsearch/, 'database'],
   [/sqs|sns|queue|eventhub|servicebus|eventgrid|kinesis|msk|topic/, 'message'],
   [/route53|dns|cloudfront|cdn|api_gateway|apigateway|api_management/, 'globe'],
-  [/log|monitor|cloudwatch|diagnostic/, 'doc'],
+  [/log|monitor|cloudwatch|diagnostic|insights/, 'doc'],
   [/instance|virtual_machine|launch|autoscaling|scale_set|availability_set|image|batch/, 'server'],
-  [/ecs|eks|kubernetes|container|ecr|app_service|web_app|service_plan|static_web_app/, 'cube'],
+  [/ecs|eks|kubernetes|container|ecr/, 'cube'],
 ];
 
 export function iconFor(type) {
