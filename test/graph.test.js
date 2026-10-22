@@ -830,3 +830,71 @@ test('a link made only through a hidden association does not hide a direct one',
   // while a path made of direct links still removes the redundant arrow
   assert.equal(reduceEdges([{ from: 'a', to: 'b' }, { from: 'b', to: 'c' }, { from: 'a', to: 'c' }]).length, 2);
 });
+
+test('rules from a for_each over a map written out (EC2 module pattern)', () => {
+  const g = buildGraph([{ path: 'm.tf', content: `
+    variable "create" { default = true }
+    variable "egress_rules" {
+      default = {
+        ipv4_default = {
+          cidr_ipv4   = "0.0.0.0/0"
+          description = "Allow all IPv4 traffic"
+          ip_protocol = "-1"
+        }
+        ipv6_default = {
+          cidr_ipv6   = "::/0"
+          ip_protocol = "-1"
+        }
+      }
+    }
+    variable "ingress_rules" { default = null }
+    variable "https" {
+      default = {
+        web = { from_port = 443, to_port = 443, ip_protocol = "tcp", cidr_ipv4 = "10.0.0.0/8" }
+      }
+    }
+    locals { create_sg = var.create }
+    resource "aws_security_group" "this" { count = local.create_sg ? 1 : 0 }
+    resource "aws_vpc_security_group_egress_rule" "this" {
+      for_each          = local.create_sg && var.egress_rules != null ? var.egress_rules : {}
+      cidr_ipv4         = each.value.cidr_ipv4
+      cidr_ipv6         = each.value.cidr_ipv6
+      description       = each.value.description
+      from_port         = try(coalesce(each.value.from_port, each.value.to_port), null)
+      ip_protocol       = each.value.ip_protocol
+      prefix_list_id    = each.value.prefix_list_id
+      security_group_id = aws_security_group.this[0].id
+    }
+    resource "aws_vpc_security_group_ingress_rule" "none" {
+      for_each          = local.create_sg && var.ingress_rules != null ? var.ingress_rules : {}
+      security_group_id = aws_security_group.this[0].id
+      cidr_ipv4         = each.value.cidr_ipv4
+    }
+    resource "aws_vpc_security_group_ingress_rule" "https" {
+      for_each          = var.https
+      security_group_id = aws_security_group.this[0].id
+      cidr_ipv4         = each.value.cidr_ipv4
+      from_port         = each.value.from_port
+      to_port           = each.value.to_port
+      ip_protocol       = each.value.ip_protocol
+    }` }]);
+  const sg = g.nodes.find((n) => n.id === 'aws_security_group.this');
+  assert.deepEqual(sg.details.rows.map((r) => [r.dir, r.proto, r.ports, r.peers.join(','), r.note]), [
+    ['out', 'all', 'all', '0.0.0.0/0', 'Allow all IPv4 traffic'],     // `prefix list` is not listed: that attribute is null
+    ['out', 'all', 'all', '::/0', ''],
+    ['in', 'tcp', '443', '10.0.0.0/8', ''],
+  ]);
+  assert.equal(sg.summary, 'in 443 · out all');
+});
+
+test('computed settings still name the visible resources they use', () => {
+  const g = buildGraph([{ path: 'm.tf', content: `
+    resource "aws_security_group" "this" {}
+    resource "aws_instance" "i" {
+      vpc_security_group_ids = compact(concat([try(aws_security_group.this[0].id, null)], var.extra))
+      ami                    = data.aws_ssm_parameter.ami.value
+    }` }]);
+  const rows = Object.fromEntries(g.nodes.find((n) => n.id === 'aws_instance.i').details.rows.map((r) => [r.k, r.value]));
+  assert.equal(rows.vpc_security_group_ids, 'Security group this (computed)');
+  assert.equal(rows.ami, 'SSM parameter ami');
+});

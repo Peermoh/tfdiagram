@@ -29,7 +29,7 @@ const FRIENDLY = {
   user_assigned_identity: 'Managed identity', role_assignment: 'Role assignment', application_security_group: 'Application security group',
   nat_gateway: 'NAT gateway', virtual_network: 'Virtual network', key_vault_secret: 'Key vault secret', storage_container: 'Storage container',
 };
-const ACRONYMS = { eks: 'EKS', ecs: 'ECS', ecr: 'ECR', kms: 'KMS', sqs: 'SQS', sns: 'SNS', acm: 'ACM', efs: 'EFS', ebs: 'EBS', waf: 'WAF', wafv2: 'WAFv2', dynamodb: 'DynamoDB', elasticache: 'ElastiCache', cloudfront: 'CloudFront', route53: 'Route 53', opensearch: 'OpenSearch', msk: 'MSK', emr: 'EMR', aks: 'AKS', api: 'API', cdn: 'CDN', vpc: 'VPC', acl: 'ACL', nat: 'NAT', vpn: 'VPN', db: 'DB', rds: 'RDS', ec2: 'EC2', iam: 'IAM', s3: 'S3', ip: 'IP', dns: 'DNS', sql: 'SQL', vm: 'VM', lb: 'LB', eip: 'EIP' };
+const ACRONYMS = { ssm: 'SSM', ami: 'AMI', eks: 'EKS', ecs: 'ECS', ecr: 'ECR', kms: 'KMS', sqs: 'SQS', sns: 'SNS', acm: 'ACM', efs: 'EFS', ebs: 'EBS', waf: 'WAF', wafv2: 'WAFv2', dynamodb: 'DynamoDB', elasticache: 'ElastiCache', cloudfront: 'CloudFront', route53: 'Route 53', opensearch: 'OpenSearch', msk: 'MSK', emr: 'EMR', aks: 'AKS', api: 'API', cdn: 'CDN', vpc: 'VPC', acl: 'ACL', nat: 'NAT', vpn: 'VPN', db: 'DB', rds: 'RDS', ec2: 'EC2', iam: 'IAM', s3: 'S3', ip: 'IP', dns: 'DNS', sql: 'SQL', vm: 'VM', lb: 'LB', eip: 'EIP' };
 
 // "network_acl" -> "Network ACL"; unknown types are spelled out ("db_subnet_group" -> "DB subnet group").
 export function friendlyType(type) {
