@@ -11,11 +11,17 @@ opened in the browser (`public/unzip.js`, no library); only the `.tf` text is se
 folders, pick which one to draw; local modules (`./x`, `../../`) are followed inside the zip. Limits: 3000 files,
 500 KB per file, 8 MB of `.tf` text; `.terraform/`, `.git/` and macOS junk are ignored.
 
+Search GitHub: finds public repositories (`/api/search`, language HCL by default; sort by stars/updated, filter AWS/Azure,
+GitHub qualifiers like `org:` work). **Draw diagram** on a result opens it in GitHub URL mode. If a repo has no `.tf` at
+the top level, its best folder is drawn and a **Folder to draw** dropdown lists the others. Search is rate-limited to about
+10/min without a token (paste one on the page or set the `GITHUB_TOKEN` secret).
+
 URL forms: `https://github.com/owner/repo` or `.../tree/<branch>/<path>` for a subfolder.
 Private repos or rate limits: paste a GitHub token in the page (sent per request, never stored).
 
 ## How it works
 - `public/unzip.js` reads `.tf` files out of an uploaded zip in the browser.
+- `lib/search.js` searches GitHub for Terraform repositories.
 - `lib/github.js` lists and downloads `.tf` files via the GitHub API.
 - `lib/modules.js` follows local module sources (`./x`, `../../`) and loads those folders too.
 - `lib/parse.js` extracts `resource` / `module` / `data` blocks.

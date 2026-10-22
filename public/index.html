@@ -43,6 +43,11 @@
   #checks li::before { position:absolute; left:0; } #checks .error::before { content:'✕'; color:#dc2626; } #checks .warn::before { content:'⚠'; color:#d97706; }
   #checks .info::before { content:'ℹ'; color:var(--accent); } #checks .ok::before { content:'✓'; color:#16a34a; }
   #checks .error { color:#dc2626; font-weight:600; } #checks summary { cursor:pointer; color:var(--muted); }
+  #sq { width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--fg); font:inherit; }
+  #searchbox { flex:1 1 100%; } .hit { border:1px solid var(--line); border-radius:8px; padding:12px 14px; margin:10px 0; }
+  .hit h3 { margin:0 0 4px; font-size:16px; } .hit p { margin:4px 0 8px; color:var(--muted); } .hit .meta { font-size:13px; color:var(--muted); }
+  .hit .topics span { display:inline-block; border:1px solid var(--line); border-radius:10px; padding:0 8px; margin:0 6px 4px 0; font-size:12px; color:var(--muted); }
+  #tosearch { margin:0 0 8px; background:transparent; color:var(--fg); border:1px solid var(--line); padding:6px 12px; font-size:14px; }
   #backbar[hidden] { display:none; }
   #backbar button { padding:8px 16px; } #backlabel { color:var(--muted); font-size:14px; }
   details { margin-top:16px; } pre { overflow:auto; background:rgba(128,128,128,.1); padding:12px; border-radius:6px; }
@@ -56,6 +61,7 @@
     <label><input type="radio" name="mode" value="paste" checked> Paste code</label>
     <label><input type="radio" name="mode" value="repo"> GitHub URL</label>
     <label><input type="radio" name="mode" value="zip"> Upload zip</label>
+    <label><input type="radio" name="mode" value="search"> Search GitHub</label>
     <label>Cloud:
       <select id="provider"><option value="auto">Auto-detect</option><option value="aws">AWS</option><option value="azure">Azure</option></select>
     </label>
@@ -63,6 +69,17 @@
   <form id="f">
     <textarea id="code" rows="12" placeholder='resource "aws_vpc" "main" { ... }  (paste one or more .tf files)'></textarea>
     <input type="text" id="repo" hidden placeholder="https://github.com/owner/repo or .../tree/main/infra">
+    <label id="repodirLabel" hidden style="flex:1 1 100%;color:var(--muted);font-size:14px">Folder to draw: <select id="repodir" style="max-width:100%"></select></label>
+    <div id="searchbox" hidden>
+      <input type="search" id="sq" placeholder="Search Terraform repos on GitHub: vpc, eks, landing zone, org:terraform-aws-modules ...">
+      <div class="opts" style="margin:8px 0 0">
+        <label>Sort: <select id="ssort"><option value="stars">Most stars</option><option value="updated">Recently updated</option><option value="best">Best match</option></select></label>
+        <label>Cloud: <select id="scloud"><option value="any">Any</option><option value="aws">AWS</option><option value="azure">Azure</option></select></label>
+        <label><input type="checkbox" id="shcl" checked> Only Terraform repos (language HCL)</label>
+      </div>
+      <p class="tag">Finds public repositories on GitHub. Press <b>Draw diagram</b> on a result to open it here. Use GitHub's search words too, like <code>org:hashicorp</code> or <code>user:name</code>.</p>
+      <div id="results"></div>
+    </div>
     <div id="zipbox" hidden>
       <label id="zipdrop"><input type="file" id="zip" accept=".zip,application/zip,application/x-zip-compressed">
         <b>Choose a .zip</b> or drop it here: a Terraform project, or a repo downloaded from GitHub (Code → Download ZIP).</label>
@@ -76,6 +93,7 @@
     <label><input type="checkbox" id="simplify" checked> Hide plumbing (IAM attachments, SG rules, associations)</label>
     <label id="tokenLabel" hidden>GitHub token (private repos): <input type="password" id="token" autocomplete="off" size="20"></label>
   </div>
+  <button type="button" id="tosearch" hidden>← Back to search results</button>
   <div id="status"></div>
   <div id="checks" hidden></div><div id="stat" style="color:var(--muted);font-size:14px"></div>
   <div id="view" hidden>
@@ -116,7 +134,10 @@ let layer = ''; // '' = all layers
 const mode = () => document.querySelector('input[name=mode]:checked').value;
 function syncMode() {
   const m = mode();
-  $('code').hidden = m !== 'paste'; $('repo').hidden = m !== 'repo'; $('zipbox').hidden = m !== 'zip'; $('tokenLabel').hidden = m !== 'repo';
+  $('code').hidden = m !== 'paste'; $('repo').hidden = m !== 'repo'; $('zipbox').hidden = m !== 'zip'; $('searchbox').hidden = m !== 'search';
+  $('tokenLabel').hidden = m !== 'repo' && m !== 'search';
+  $('repodirLabel').hidden = m !== 'repo' || !$('repodir').options.length;
+  $('go').textContent = m === 'search' ? 'Search' : 'Generate';
   $('code').required = m === 'paste'; $('repo').required = m === 'repo';
 }
 document.querySelectorAll('input[name=mode]').forEach((r) => r.addEventListener('change', syncMode));
@@ -264,7 +285,65 @@ for (const id of ['scope', 'collapse', 'dir', 'fit', 'detail']) $(id).addEventLi
 $('inactive').addEventListener('change', () => { if (lastData) run(); });
 $('q').addEventListener('input', () => { clearTimeout($('q')._t); $('q')._t = setTimeout(draw, 250); });
 
+// ---- search GitHub ----------------------------------------------------------------------------
+let searchPage = 1;
+let searchSeq = 0; // ignore answers to an older search
+const fmt = new Intl.NumberFormat();
+const ago = (iso) => {
+  const days = Math.round((new Date(iso) - Date.now()) / 86400000);
+  const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
+  return Math.abs(days) >= 365 ? rtf.format(Math.round(days / 365), 'year') : Math.abs(days) >= 30 ? rtf.format(Math.round(days / 30), 'month') : rtf.format(days, 'day');
+};
+function hitHtml(r) {
+  return `<div class="hit"><h3><a href="${H(r.url)}" target="_blank" rel="noopener">${H(r.fullName)} ↗</a>${r.archived ? ' <span class="tag">(archived)</span>' : ''}</h3>
+    ${r.description ? `<p>${H(r.description)}</p>` : ''}
+    ${r.topics.length ? `<div class="topics">${r.topics.map((t) => `<span>${H(t)}</span>`).join('')}</div>` : ''}
+    <div class="meta">★ ${fmt.format(r.stars)} · updated ${H(ago(r.updated))}${r.language ? ` · ${H(r.language)}` : ''}</div>
+    <p style="margin:8px 0 0"><button type="button" data-draw="${H(r.fullName)}">Draw diagram</button></p></div>`;
+}
+async function search(page) {
+  if (!$('sq').value.trim()) { $('status').className = 'err'; $('status').textContent = 'Type something to search for, for example "vpc", "eks" or "landing zone"'; return; }
+  const mine = ++searchSeq;
+  $('go').disabled = true; $('status').className = ''; $('status').textContent = 'Searching GitHub…';
+  try {
+    const qs = new URLSearchParams({ q: $('sq').value, sort: $('ssort').value, cloud: $('scloud').value, hcl: $('shcl').checked ? '1' : '0', page });
+    const res = await fetch(`/api/search?${qs}`, { headers: $('token').value ? { 'x-github-token': $('token').value } : {} });
+    const data = await res.json();
+    if (mine !== searchSeq) return;
+    if (!res.ok) throw new Error(data.error);
+    searchPage = page;
+    const box = $('results');
+    if (page === 1) box.replaceChildren();
+    box.querySelector('.more')?.remove();
+    box.insertAdjacentHTML('beforeend', data.items.map(hitHtml).join(''));
+    if (data.hasMore) box.insertAdjacentHTML('beforeend', '<p class="more"><button type="button" id="more">Show more</button></p>');
+    $('status').textContent = data.total ? `${fmt.format(data.total)} repositor${data.total === 1 ? 'y' : 'ies'} found${data.total > 1000 ? ' (GitHub shows the first 1,000)' : ''}` : 'No repositories found. Try other words, or untick "Only Terraform repos".';
+  } catch (e) {
+    $('status').className = 'err'; $('status').textContent = e.message;
+  } finally { $('go').disabled = false; }
+}
+$('results').addEventListener('click', (e) => {
+  if (e.target.id === 'more') { search(searchPage + 1); return; }
+  const full = e.target.dataset?.draw;
+  if (!full) return;
+  document.querySelector('input[value=repo]').checked = true;
+  repoDirFor = ''; $('repodir').replaceChildren();
+  $('repo').value = `https://github.com/${full}`;
+  syncMode();
+  $('tosearch').hidden = false;
+  window.scrollTo({ top: 0 });
+  run();
+});
+$('tosearch').addEventListener('click', () => {
+  document.querySelector('input[value=search]').checked = true; syncMode();
+  $('tosearch').hidden = true;
+  $('results').scrollIntoView({ block: 'start' });
+});
+$('repodir').addEventListener('change', () => run());
+$('repo').addEventListener('input', () => { $('tosearch').hidden = true; });
+
 // ---- upload zip -------------------------------------------------------------------------------
+let repoDirFor = ''; // the repo URL the folder dropdown was filled for
 let zipFiles = null; // [{ path, content }] from the chosen zip
 let zipIgnored = {};
 async function loadZip(file) {
@@ -299,15 +378,22 @@ async function run() {
       ? await fetch(`/api/diagram?${qs}`, { method: 'POST', body: JSON.stringify({ code: $('code').value }) })
       : mode() === 'zip'
       ? await fetch(`/api/diagram?${qs}`, { method: 'POST', body: JSON.stringify({ files: zipFiles, ignored: zipIgnored, root: $('zipdir').options.length ? $('zipdir').value : undefined }) })
-      : await fetch(`/api/diagram?repo=${encodeURIComponent($('repo').value)}&${qs}`, { headers: $('token').value ? { 'x-github-token': $('token').value } : {} });
+      : await fetch(`/api/diagram?repo=${encodeURIComponent($('repo').value)}${$('repodir').options.length && repoDirFor === $('repo').value ? `&root=${encodeURIComponent($('repodir').value)}` : ''}&${qs}`, { headers: $('token').value ? { 'x-github-token': $('token').value } : {} });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
     showChecks(data.checks);
     const { edges } = data.graph;
     const nodes = data.graph.nodes.filter((n) => n.kind !== 'module' || !n.expanded);
     const mods = data.graph.nodes.filter((n) => n.kind === 'module' && n.expanded).length;
-    const where = data.owner ? `${data.owner}/${data.repo}@${data.branch}: ${data.fileCount} files, ` : data.dirs ? `zip: ${data.fileCount} files, folder ${data.root || '(top level)'}: ` : '';
-    if (data.dirs && !$('zipdir').options.length) {
+    const where = data.owner ? `${data.owner}/${data.repo}@${data.branch}${data.root ? `/${data.root}` : ''}: ${data.fileCount} files, ` : data.dirs ? `zip: ${data.fileCount} files, folder ${data.root || '(top level)'}: ` : '';
+    if (mode() === 'repo' && data.dirs && repoDirFor !== $('repo').value) {   // folders in this repository that hold Terraform
+      const depth = (d) => (d ? d.split('/').length : 0);
+      $('repodir').replaceChildren(...[...data.dirs].sort((a, b) => depth(a.dir) - depth(b.dir) || a.dir.localeCompare(b.dir)).map((d) => new Option(`${d.dir || '(top level)'}  ·  ${d.count} file${d.count === 1 ? '' : 's'}`, d.dir)));
+      $('repodir').value = data.root; repoDirFor = $('repo').value;
+      $('repodirLabel').hidden = data.dirs.length < 2;
+    }
+    if (mode() === 'repo' && data.root !== undefined && !(data.dirs?.length > 1)) $('repodirLabel').hidden = true;
+    if (data.dirs && mode() === 'zip' && !$('zipdir').options.length) {
       const depth = (d) => (d ? d.split('/').length : 0);
       $('zipdir').replaceChildren(...[...data.dirs].sort((a, b) => depth(a.dir) - depth(b.dir) || a.dir.localeCompare(b.dir)).map((d) => new Option(`${d.dir || '(top level)'}  ·  ${d.count} file${d.count === 1 ? '' : 's'}`, d.dir)));
       $('zipdir').value = data.root;
@@ -325,7 +411,7 @@ async function run() {
     $('checks').hidden = true;
   } finally { $('go').disabled = false; }
 }
-$('f').addEventListener('submit', (e) => { e.preventDefault(); run(); });
+$('f').addEventListener('submit', (e) => { e.preventDefault(); if (mode() === 'search') search(1); else run(); });
 const q = new URLSearchParams(location.search).get('repo');
 if (q) { document.querySelector('input[value=repo]').checked = true; syncMode(); $('repo').value = q; run(); }
 </script>

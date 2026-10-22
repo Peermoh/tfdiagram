@@ -3,7 +3,7 @@ import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { handleApi } from './lib/api.js';
+import { handleApi, handleSearch } from './lib/api.js';
 
 const PUBLIC = join(fileURLToPath(new URL('.', import.meta.url)), 'public');
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml' };
@@ -12,6 +12,11 @@ const PORT = process.env.PORT ?? 3000;
 http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
   try {
+    if (url.pathname === '/api/search') {
+      const out = await handleSearch(new Request(url, { method: 'GET', headers: req.headers }), process.env);
+      res.writeHead(out.status, Object.fromEntries(out.headers));
+      return res.end(await out.text());
+    }
     if (url.pathname === '/api/diagram') {
       const body = req.method === 'POST' ? await new Promise((resolve) => {
         const chunks = [];
