@@ -4,7 +4,7 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&l
 
 export const GROUPS = [
   ['users', 'Users', '#64748b'], ['frontend', 'Frontend', '#2563eb'], ['backend', 'Backend', '#16a34a'], ['library', 'Libraries and shared code', '#8b5cf6'],
-  ['support', 'Support: tests, scripts, docs', '#94a3b8'], ['data', 'Data and external services', '#d97706'], ['infra', 'Delivery and infrastructure', '#0ea5e9'],
+  ['support', 'Support: tests, scripts, tooling', '#94a3b8'], ['content', 'Content and documentation', '#0d9488'], ['data', 'Data and external services', '#d97706'], ['infra', 'Delivery and infrastructure', '#0ea5e9'],
 ];
 
 // ---- Mermaid text for a diagram model { nodes: [{id,label,group,sub}], edges: [{from,to,label,inferred}] }
@@ -42,7 +42,7 @@ PART 1, the explanation, in Markdown, with these sections:
 Keep it clear and under about 700 words. Use file and folder names from the material.
 
 PART 2, the architecture diagram, as JSON inside <diagram> and </diagram> tags, nothing else inside the tags:
-{"nodes":[{"id":"short_id","label":"Name","group":"users|frontend|backend|library|support|data|infra","sub":"one short line"}],
+{"nodes":[{"id":"short_id","label":"Name","group":"users|frontend|backend|library|support|content|data|infra","sub":"one short line"}],
  "edges":[{"from":"id","to":"id","label":"short verb or protocol","inferred":false}]}
 Rules: at most 22 nodes; every edge must use ids that exist; groups must be exactly one of the listed words; set "inferred": true for connections you are guessing rather than reading from the material; arrows point from the caller or dependent to what it uses; keep labels under 24 characters.`;
   return { system, user };
@@ -57,7 +57,7 @@ export function validateDiagram(d) {
     const id = String(n?.id ?? '').trim();
     if (!id || seen.has(id)) continue;
     seen.add(id);
-    nodes.push({ id, label: String(n.label ?? id).slice(0, 40), group: groups.has(n.group) ? n.group : 'library', sub: String(n.sub ?? '').slice(0, 48), kind: n.group === 'data' ? 'external' : n.group === 'users' ? 'users' : n.group === 'frontend' ? 'frontend' : n.group === 'backend' ? 'backend' : n.group === 'infra' ? 'infra' : 'library' });
+    nodes.push({ id, label: String(n.label ?? id).slice(0, 40), group: groups.has(n.group) ? n.group : 'library', sub: String(n.sub ?? '').slice(0, 48), kind: n.group === 'content' ? 'docs' : n.group === 'data' ? 'external' : n.group === 'users' ? 'users' : n.group === 'frontend' ? 'frontend' : n.group === 'backend' ? 'backend' : n.group === 'infra' ? 'infra' : 'library' });
   }
   const edges = (Array.isArray(d.edges) ? d.edges : []).filter((e) => seen.has(String(e?.from)) && seen.has(String(e?.to)) && e.from !== e.to).slice(0, 80)
     .map((e) => ({ from: String(e.from), to: String(e.to), label: String(e.label ?? '').slice(0, 28), inferred: Boolean(e.inferred) }));

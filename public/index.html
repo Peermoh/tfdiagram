@@ -184,7 +184,7 @@
   .langbar { display:flex; height:10px; border-radius:6px; overflow:hidden; margin:12px 0 8px; background:var(--line); } .langbar i { display:block; height:100%; }
   .langkey { display:flex; flex-wrap:wrap; gap:4px 14px; font-size:12.5px; color:var(--muted); } .langkey i { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:5px; }
   .xstats { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; } .xstats .chip b { color:var(--fg); }
-  table.xt { border-collapse:collapse; width:100%; font-size:13.5px; margin:8px 0 14px; } table.xt th, table.xt td { text-align:left; padding:6px 10px 6px 0; border-bottom:1px solid var(--line); vertical-align:top; } table.xt th { color:var(--muted); font-size:11.5px; text-transform:uppercase; letter-spacing:.05em; }
+  #xpartsbody, #xstackbody, #invbody { overflow-x:auto; } table.xt { border-collapse:collapse; width:100%; font-size:13.5px; margin:8px 0 14px; } table.xt th, table.xt td { text-align:left; padding:6px 10px 6px 0; border-bottom:1px solid var(--line); vertical-align:top; } table.xt th { color:var(--muted); font-size:11.5px; text-transform:uppercase; letter-spacing:.05em; }
   tr.invgroup td { background:var(--card2); padding-top:8px; } .statechip { display:inline-block; padding:1px 9px; border-radius:999px; font-size:12px; font-weight:600; background:var(--accent-soft); color:var(--accent); } .statechip.ok { background:rgba(22,163,74,.12); color:var(--good); } .statechip.warn { background:rgba(217,119,6,.14); color:var(--warn); } .statechip.off { background:rgba(100,116,139,.15); color:var(--muted); }
   .kindtag { display:inline-block; padding:1px 9px; border-radius:999px; font-size:12px; font-weight:600; background:var(--accent-soft); color:var(--accent); }
   details.fold { margin-top:14px; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:4px 16px; box-shadow:var(--shadow); }
@@ -216,7 +216,7 @@
   .quote { border-left:4px solid var(--accent); background:var(--accent-soft); border-radius:0 12px 12px 0; padding:10px 14px; font-style:italic; margin:12px 0; }
   .foot { margin-top:28px; text-align:center; } .foot .legend { justify-content:center; }
   .nav button, .modes label { white-space:nowrap; }
-  @media (max-width:640px) { .modes { display:flex; flex-wrap:nowrap; overflow-x:auto; width:100%; scrollbar-width:none; } .modes::-webkit-scrollbar { display:none; } .modes label { flex:none; font-size:13.5px; } .top-in { gap:8px; } .brand { font-size:17px; } .brand span { display:none; } .nav button { padding:7px 11px; font-size:13px; } .nav .ic::before { margin-right:.3em; } .brand small { display:none; } .modes label { padding:8px 11px; } .tools input[type=search] { width:100%; } main { padding-top:18px; } .card { padding:14px; border-radius:16px; } }
+  @media (max-width:640px) { .nav .long { display:none; } .nav button::before { display:none; } .nav button { padding:7px 10px !important; } .top-in { padding-left:10px; padding-right:10px; } .modes { display:flex; flex-wrap:nowrap; overflow-x:auto; width:100%; scrollbar-width:none; } .modes::-webkit-scrollbar { display:none; } .modes label { flex:none; font-size:13.5px; } .top-in { gap:8px; } .brand { font-size:17px; } .brand span { display:none; } .nav button { padding:7px 11px; font-size:13px; } .nav .ic::before { margin-right:.3em; } .brand small { display:none; } .modes label { padding:8px 11px; } .tools input[type=search] { width:100%; } main { padding-top:18px; } .card { padding:14px; border-radius:16px; } }
   @media (prefers-reduced-motion:reduce) { *, *::before, *::after { animation:none !important; transition:none !important; } }
 </style>
 </head>
@@ -226,8 +226,8 @@
   <nav class="nav" id="pagenav" aria-label="Pages">
     <span class="ind"></span>
     <button type="button" data-page="diagram" class="on ic" style="--i:var(--i-flow)">Diagram</button>
-    <button type="button" data-page="explain" class="ic" style="--i:var(--i-code)">Explain repo</button>
-    <button type="button" data-page="ai" class="ic" style="--i:var(--i-sparkle)">Connect AI</button>
+    <button type="button" data-page="explain" class="ic" style="--i:var(--i-code)">Explain<span class="long"> repo</span></button>
+    <button type="button" data-page="ai" class="ic" style="--i:var(--i-sparkle)">Connect<span class="long"> AI</span></button>
   </nav>
   <button type="button" id="themebtn" class="ic only" title="Theme: default" aria-label="Change theme"></button>
   <select id="theme" aria-hidden="true" tabindex="-1"><option value="">Default</option><option value="dark">Dark</option><option value="light">Light</option></select>
@@ -703,13 +703,13 @@ function showExplain(d) {
   $('xsummary').innerHTML = `<h2 style="margin:0 0 4px;font-size:20px">${HX(m.name || d.name || 'Repository')}</h2>
     <p style="margin:0;color:var(--muted)">${HX(m.description || '')}</p>
     ${langs.length ? `<div class="langbar">${langs.map((l) => `<i style="width:${l.percent}%;background:${LANG_COLORS[l.name] ?? '#8b95a7'}" title="${HX(l.name)} ${l.percent}%"></i>`).join('')}</div><div class="langkey">${langs.map((l) => `<span><i style="background:${LANG_COLORS[l.name] ?? '#8b95a7'}"></i>${HX(l.name)} ${Math.round(l.percent)}%</span>`).join('')}</div>` : ''}
-    <div class="xstats"><span class="chip"><b>${m.fileCount}</b>&nbsp;files</span><span class="chip"><b>${m.codeFiles}</b>&nbsp;source files</span><span class="chip"><b>${m.components.length}</b>&nbsp;parts</span><span class="chip"><b>${m.techs.length}</b>&nbsp;technologies</span>${d.truncated ? '<span class="chip">large repo: only part of the text was read</span>' : ''}</div>`;
+    <div class="xstats"><span class="chip"><b>${m.fileCount}</b>&nbsp;files</span>${m.codeFiles ? `<span class="chip"><b>${m.codeFiles}</b>&nbsp;source files</span>` : ""}${m.contentRepo ? `<span class="chip"><b>${m.docFiles}</b>&nbsp;documents</span>` : ""}${m.components.length ? `<span class="chip"><b>${m.components.length}</b>&nbsp;parts</span>` : ""}${m.techs.length ? `<span class="chip"><b>${m.techs.length}</b>&nbsp;technologies</span>` : ""}${d.truncated ? '<span class="chip">large repo: only part of the text was read</span>' : ''}</div>`;
   const run = m.readme.run[0];
   $('xexplain').innerHTML = m.explanation.map((p) => `<p>${HX(p)}</p>`).join('') + (run ? `<h4>How to run it (from the README, “${HX(run.section)}”)</h4><pre class="code">${HX(run.lines.join('\n'))}</pre>` : '');
   $('xbadge').textContent = 'assembled from the repository\'s files, no AI';
   // parts + imports
   const rows = m.components.map((c) => `<tr><td><b>${HX(c.name)}</b><br><span class="tag">${HX(c.path || '/')}</span></td><td><span class="kindtag">${HX(c.kind)}</span></td><td>${HX(c.language || '')}</td><td>${c.files}</td><td>${c.entry ? `<code>${HX(c.entry)}</code>` : ''}</td><td>${HX(c.techs.join(', '))}</td></tr>`).join('');
-  $('xpartsbody').innerHTML = `<table class="xt"><tr><th>Part</th><th>Kind</th><th>Language</th><th>Files</th><th>Entry</th><th>Uses</th></tr>${rows}</table>`
+  $('xpartsbody').innerHTML = !m.components.length ? '<p class="tag">No parts could be identified (a very small or unusual repository).</p>' : `<table class="xt"><tr><th>Part</th><th>Kind</th><th>Language</th><th>Files</th><th>Entry</th><th>Uses</th></tr>${rows}</table>`
     + (m.imports.length ? `<b>Imports between parts</b><table class="xt"><tr><th>From</th><th>To</th><th>Imports</th></tr>${m.imports.map((e) => `<tr><td>${HX(e.from)}</td><td>${HX(e.to)}</td><td>${e.count}</td></tr>`).join('')}</table>` : '<p class="tag">No imports between the parts were found (or this language is not followed yet).</p>');
   const inf = m.infrastructure; const li = (t) => `<li>${t}</li>`;
   const infra = [];

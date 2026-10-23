@@ -85,3 +85,21 @@ test('MCP: analyze_repo and get_repo_file', async () => {
   const bad = await call('get_repo_file', { repo_url: 'https://github.com/acme/webshop', path: 'nope.js' });
   assert.equal(bad.result.isError, true);
 });
+
+test('repo map: README HTML is stripped, and a repository with no code is described as content', () => {
+  const mk = (o) => Object.entries(o).map(([path, content]) => ({ path, content }));
+  const f = mk({
+    'readme.md': '<div align="center"><h1>Awesome</h1></div>\n\n# Awesome\n\nJust type <a href="https://awesome.re"><code>awesome.re</code></a> to go here. Check out my <a href="https://x.com/apps">apps</a> &amp; more.\n\n## Contents\n\n- x\n\n## Platforms\n\nx\n',
+    'contributing.md': '# Contributing\n', 'license': 'CC0', 'code-of-conduct.md': 'x', 'docs/guide.md': '# Guide\n', 'docs/faq.md': '# FAQ\n',
+    '.github/workflows/lint.yml': 'name: lint\non: [push]\njobs:\n  lint:\n    runs-on: ubuntu-latest\n',
+  });
+  const m = analyzeRepo({ name: 'awesome', tree: f.map((x) => ({ path: x.path, size: x.content.length })), files: f });
+  assert.equal(m.description, 'Just type awesome.re to go here. Check out my apps & more.');
+  assert.ok(!m.explanation.join(' ').includes('<a'));
+  assert.equal(m.contentRepo, true);
+  assert.equal(m.languages[0].name, 'Markdown');
+  assert.ok(m.components.every((c) => c.kind === 'docs'));
+  assert.ok(m.diagram.nodes.some((n) => n.group === 'content'));
+  assert.match(m.explanation.join(' '), /holds no source code/);
+  assert.match(m.explanation.join(' '), /main sections: Contents, Platforms/);
+});

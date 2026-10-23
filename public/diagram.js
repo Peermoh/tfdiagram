@@ -647,8 +647,8 @@ export function renderStack(model, { animate = true } = {}) {
 // ---- Repo map: components, services and how they depend on each other (any code repository) ----
 const RM = {
   W: 196, H: 68, pad: 14,
-  colors: { users: '#64748b', frontend: '#2563eb', backend: '#16a34a', library: '#8b5cf6', support: '#94a3b8', data: '#d97706', infra: '#0ea5e9' },
-  titles: { users: 'Users', frontend: 'Frontend', backend: 'Backend', library: 'Libraries and shared code', support: 'Support: tests, scripts, docs', data: 'Data and external services', infra: 'Delivery and infrastructure' },
+  colors: { users: '#64748b', frontend: '#2563eb', backend: '#16a34a', library: '#8b5cf6', support: '#94a3b8', content: '#0d9488', data: '#d97706', infra: '#0ea5e9' },
+  titles: { users: 'Users', frontend: 'Frontend', backend: 'Backend', library: 'Libraries and shared code', support: 'Support: tests, scripts, tooling', content: 'Content and documentation', data: 'Data and external services', infra: 'Delivery and infrastructure' },
   icons: { users: 'user', frontend: 'window', backend: 'server', library: 'cube', data: 'database', tests: 'folder', docs: 'doc', tooling: 'filter', config: 'folder', infra: 'containers', mobile: 'monitor', other: 'cube', external: 'cloud' },
   ext: { Database: 'database', Cache: 'bolt', 'Message queue': 'message', 'Cloud services': 'cloud', 'Auth provider': 'key', Payments: 'cert', 'AI API': 'hub', Monitoring: 'pulse', 'Email / SMS': 'message', Search: 'search', 'Object storage': 'bucket', Proxy: 'balancer' },
 };
