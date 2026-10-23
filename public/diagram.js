@@ -520,3 +520,124 @@ ${t.total > 1 ? `<g><rect x="${TW / 2 + 12}" y="0" width="30" height="18" rx="9"
   svg.push('</svg>');
   return svg.join('\n');
 }
+
+// ---- Stack view: a stack.json (capability lists per tier) drawn as tier boxes with service icons ----
+const ST = { TW: 138, TH: 134, G: 14, PAD: 16, HEAD: 32, CAT: 24 };
+const STACK_COLORS = { routing: '#147eba', tier: '#8c4fff', nonvpc: '#6b7a8c', platform: '#0f9d8a', account: '#5b6b7f' };
+const initials = (s) => String(s).replace(/[^A-Za-z0-9 ]/g, ' ').split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('') || '?';
+
+export function renderStack(model, { animate = true } = {}) {
+  const { TW, TH, G, PAD, HEAD, CAT } = ST;
+  const tiles = [];                                              // every service tile, with its position
+  // a box = a titled group of categories; items are laid out `perRow` per row
+  const mkBox = (title, color, categories, perRow) => ({ title, color, cats: categories.map((c) => ({ title: c.title, items: c.items.map((it) => { const t = { ...it, w: TW, h: TH }; tiles.push(t); return t; }) })), perRow });
+  const size = (b) => {
+    const per = Math.max(1, b.perRow);
+    const cols = Math.min(per, Math.max(1, ...b.cats.map((c) => c.items.length)));
+    let h = HEAD;
+    for (const c of b.cats) { const rows = Math.max(1, Math.ceil(c.items.length / per)); h += CAT + rows * TH + (rows - 1) * G + G; }
+    return { w: cols * TW + (cols - 1) * G + 2 * PAD, h: h + PAD - G };
+  };
+  const place = (b, x, y) => {
+    const s = size(b); Object.assign(b, { x, y, w: s.w, h: s.h });
+    let cy = y + HEAD;
+    for (const c of b.cats) {
+      c.y = cy; cy += CAT;
+      c.items.forEach((t, i) => { t.x = x + PAD + (i % b.perRow) * (TW + G); t.y = cy + Math.floor(i / b.perRow) * (TH + G); });
+      cy += Math.max(1, Math.ceil(c.items.length / b.perRow)) * TH + (Math.max(1, Math.ceil(c.items.length / b.perRow)) - 1) * G + G;
+    }
+  };
+  const groups = model.groups;
+  const routing = groups.find((g) => g.key === 'cloud_routing');
+  const account = groups.find((g) => g.key === 'cloud_account');
+  const others = groups.filter((g) => g !== routing && g !== account);
+  const boxes = [];
+  const acctTiers = account?.tiers ?? [];
+  const vpcTiers = acctTiers.filter((t) => /^tier/i.test(t.key));
+  const looseTiers = acctTiers.filter((t) => !/^tier/i.test(t.key));
+  const X0 = 150;
+  const routingBoxes = routing ? routing.tiers.map((t) => mkBox(routing.title, STACK_COLORS.routing, t.categories.flatMap((c) => c.items.map((it) => ({ title: c.title, items: [it] }))), 1)) : [];
+  const tierBoxes = vpcTiers.map((t) => mkBox(`${t.title} (in the VPC)`, STACK_COLORS.tier, t.categories, 4));
+  const looseBoxes = looseTiers.map((t) => mkBox(`${t.title} services`, STACK_COLORS.nonvpc, t.categories, 6));
+  const otherBoxes = others.flatMap((g) => g.tiers.map((t) => mkBox(g.title + (t.title ? ` · ${t.title}` : ''), STACK_COLORS.platform, t.categories, 6)));
+  // columns: routing | tier 1 | tier 2.. ; loose and other boxes underneath, as wide as the columns above them
+  const top = 70;
+  let x = X0;
+  for (const b of routingBoxes) { place(b, x, top); }
+  if (routingBoxes.length) x += Math.max(...routingBoxes.map((b) => b.w)) + 40;
+  const acctX = x - 14;
+  const tierXs = [];
+  for (const b of tierBoxes) { place(b, x, top + 40); tierXs.push(x); x += b.w + 28; }
+  // the second VPC tier (database) lines up with the compute row so the flow arrow is straight
+  const findTile = (re) => tiles.find((t) => t.type && re.test(t.type));
+  const compute = findTile(/aws_instance|aws_autoscaling_group/);
+  if (tierBoxes[1]) {
+    const db = tierBoxes[1].cats.flatMap((c) => c.items)[0];
+    if (compute && db) place(tierBoxes[1], tierBoxes[1].x, tierBoxes[1].y + (compute.y - db.y));
+  }
+  const lbTile = findTile(/aws_lb$/); const dnsTile = findTile(/route53/);
+  if (routingBoxes.length && lbTile && dnsTile) for (const b of routingBoxes) place(b, b.x, b.y + (lbTile.y - dnsTile.y));   // DNS in line with the load balancer: a straight arrow
+  let bottom = Math.max(top + 40, ...tierBoxes.map((b) => b.y + b.h), ...routingBoxes.map((b) => b.y + b.h));
+  const innerRight = Math.max(x - 28, X0 + 400);
+  let cy = bottom + 28;
+  for (const b of looseBoxes) { b.perRow = Math.max(1, Math.floor((innerRight - (tierXs[0] ?? X0) - 2 * PAD + G) / (TW + G))); place(b, tierXs[0] ?? X0, cy); cy += b.h + 24; }
+  const acctBottom = cy - 8;
+  const acctRight = innerRight + 14;
+  // platform boxes sit under the account, full width
+  let py = acctBottom + 40;
+  for (const b of otherBoxes) { b.perRow = Math.max(1, Math.floor((acctRight - X0 - 2 * PAD + G) / (TW + G))); place(b, X0, py); py += b.h + 24; }
+  const W = Math.ceil(Math.max(acctRight, ...otherBoxes.map((b) => b.x + b.w)) + 30);
+  const H = Math.ceil(py + 10);
+
+  const meta = model.meta;
+  const svg = [];
+  svg.push(`<svg xmlns="http://www.w3.org/2000/svg" class="arch stack${animate ? '' : ' still'}" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" font-family="system-ui, sans-serif">`);
+  svg.push(`<style>.flow{stroke-dasharray:7 6;animation:tfflow 0.9s linear infinite}.still .flow{animation:none}@keyframes tfflow{to{stroke-dashoffset:-13}}@media (prefers-reduced-motion:reduce){.flow{animation:none}}</style>`);
+  svg.push(`<defs><marker id="sarr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="${ARCH.flow}"/></marker></defs>`);
+  // outer cloud + account frames
+  const head = [meta.csp, meta.region].filter(Boolean).join(' · ') || 'Cloud';
+  svg.push(`<rect x="${X0 - 12}" y="8" width="${W - X0 - 8}" height="${H - 18}" rx="8" fill="${ARCH.cloud}08" stroke="${ARCH.cloud}" stroke-width="1.5"/>`);
+  svg.push(`<text x="${X0 + 6}" y="34" font-size="14" font-weight="700" fill="${ARCH.cloud}">${esc(head)}${meta.pattern ? `  ·  pattern ${esc(meta.pattern)}${meta.version ? ` ${esc(meta.version)}` : ''}` : ''}</text>`);
+  if (account) svg.push(`<rect x="${acctX}" y="${top - 8}" width="${acctRight - acctX}" height="${acctBottom - top + 12}" rx="10" fill="none" stroke="${STACK_COLORS.account}" stroke-width="1.4" stroke-dasharray="6 5"/><text x="${acctX + 10}" y="${top + 8}" font-size="12.5" font-weight="700" fill="${STACK_COLORS.account}">${esc(account.title)}</text>`);
+  const catLabels = [];
+  const all = [...routingBoxes, ...tierBoxes, ...looseBoxes, ...otherBoxes];
+  for (const b of all) {
+    svg.push(`<g><rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" rx="8" fill="${b.color}14" stroke="${b.color}" stroke-width="1.4"/><rect x="${b.x}" y="${b.y}" width="${b.w}" height="${HEAD - 6}" rx="8" fill="${b.color}"/><rect x="${b.x}" y="${b.y + 14}" width="${b.w}" height="12" fill="${b.color}"/><text x="${b.x + 12}" y="${b.y + 19}" font-size="13" font-weight="700" fill="#fff">${esc(clip(b.title, Math.floor(b.w / 7.4)))}</text>`);
+    for (const c of b.cats) catLabels.push(`<text x="${b.x + PAD}" y="${c.y + 15}" font-size="11" font-weight="700" letter-spacing=".06em" fill="${b.color}" stroke="var(--card)" stroke-width="4" paint-order="stroke" stroke-linejoin="round">${esc(c.title.toUpperCase())}</text>`);
+    svg.push('</g>');
+  }
+
+  // typical flow (inferred): Internet -> DNS -> load balancer -> compute -> database, compute -> block storage
+  const edgesOut = [];
+  const by = (re) => tiles.filter((t) => t.type && re.test(t.type));
+  const dns = by(/route53/)[0]; const lb = by(/aws_lb$/)[0]; const asg = by(/autoscaling/)[0]; const ec2 = by(/aws_instance/)[0];
+  const ebs = by(/ebs_volume/)[0]; const efs = by(/efs_file/)[0]; const db = by(/db_instance|dynamodb/)[0];
+  const link = (a, b) => { if (a && b && a !== b) edgesOut.push([a, b]); };
+  if (dns) { svg.push(`<g transform="translate(14 ${dns.y + 4})"><circle cx="40" cy="30" r="26" fill="${ARCH.cloud}"/><g transform="translate(18 8) scale(1.8)" fill="none" stroke="#fff" stroke-width="1.5" stroke-linecap="round"><path d="${P.globe}"/></g><text x="40" y="76" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--fg)">Internet</text></g>`); edgesOut.push([{ x: 14, y: dns.y, w: 80, h: TH, net: true }, dns]); }
+  link(dns, lb); link(lb, asg ?? ec2); link(asg, ec2); link(ec2 ?? asg, ebs); link(ec2 ?? asg, efs); link(ec2 ?? asg, db);
+  const iconC = (t) => ({ cx: t.x + TW / 2, cy: t.y + 34 });
+  for (const [a, b] of edgesOut) {
+    const A = a.net ? { cx: a.x + 40, cy: a.y + 34 } : iconC(a); const B = iconC(b);
+    let d;
+    if (Math.abs(A.cy - B.cy) < 8) { const x1 = A.cx + (a.net ? 30 : 36); const x2 = B.cx - 40; d = `M${x1} ${A.cy} L${x2} ${B.cy}`; }
+    else if (Math.abs(A.cx - B.cx) < 8) { const y1 = (a.net ? a.y + a.h : a.y + TH - 6); const y2 = b.y + 2; d = `M${A.cx} ${y1} L${B.cx} ${y2}`; }
+    else if (Math.abs(B.cx - A.cx) > TW * 0.9 && Math.abs(B.cy - A.cy) < TH) { const x1 = A.cx + 36; const x2 = B.cx - 40; const m = (x1 + x2) / 2; d = `M${x1} ${A.cy} L${m} ${A.cy} L${m} ${B.cy} L${x2} ${B.cy}`; }
+    else { const y1 = a.y + TH - 6; const y2 = b.y + 2; const m = (y1 + y2) / 2; d = `M${A.cx} ${y1} L${A.cx} ${m} L${B.cx} ${m} L${B.cx} ${y2}`; }
+    svg.push(`<path d="${d}" fill="none" stroke="${ARCH.flow}" stroke-width="2.2" stroke-linejoin="round" class="flow" marker-end="url(#sarr)"><title>Typical flow, inferred from the services in this stack (stack.json does not say how they connect)</title></path>`);
+  }
+
+  svg.push(...catLabels);
+  const wrap = (str, n) => { const w = String(str).split(' '); const lines = ['']; for (const x of w) { if ((lines[lines.length - 1] + ' ' + x).trim().length > n && lines[lines.length - 1]) lines.push(x); else lines[lines.length - 1] = (lines[lines.length - 1] + ' ' + x).trim(); } return lines.length > 2 ? [lines[0], clip(lines.slice(1).join(' '), n)] : lines; };
+  for (const t of tiles) {
+    const official = t.type && OFFICIAL[t.type];
+    const color = t.vendor === 'aws' ? (COLORS.Compute) : '#64748b';
+    const icon = official
+      ? `<image href="icons/${esc(official)}" x="${TW / 2 - 28}" y="6" width="56" height="56" preserveAspectRatio="xMidYMid meet"/>`
+      : t.type
+        ? `<rect x="${TW / 2 - 28}" y="6" width="56" height="56" rx="10" fill="${COLORS[({ aws_dx_connection: 'Networking', aws_ssm_parameter: 'Security & IAM', aws_cloudtrail: 'Security & IAM' })[t.type]] ?? color}"/><g transform="translate(${TW / 2 - 18} 16) scale(1.5)" fill="none" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${glyph(iconFor(t.type))}</g>`
+        : `<rect x="${TW / 2 - 28}" y="6" width="56" height="56" rx="10" fill="${color}"/><text x="${TW / 2}" y="43" text-anchor="middle" font-size="20" font-weight="700" fill="#fff">${esc(initials(t.label))}</text>`;
+    svg.push(`<g transform="translate(${t.x} ${t.y})"><title>${esc(`${t.label}${t.capability ? ` · ${t.capability}` : ''} (${t.raw})`)}</title>${icon}${wrap(t.label, 19).map((ln, i) => `<text x="${TW / 2}" y="${80 + i * 14}" text-anchor="middle" font-size="12" font-weight="700" fill="var(--fg)">${esc(ln)}</text>`).join('')}<text x="${TW / 2}" y="${wrap(t.label, 19).length > 1 ? 110 : 96}" text-anchor="middle" font-size="11" fill="var(--muted)">${esc(clip(t.capability ?? '', 26))}</text>${t.vendor !== 'aws' ? `<text x="${TW / 2}" y="${wrap(t.label, 19).length > 1 ? 124 : 110}" text-anchor="middle" font-size="10" fill="var(--muted)">non-AWS tool</text>` : ''}</g>`);
+  }
+  svg.push('</svg>');
+  return svg.join('\n');
+}

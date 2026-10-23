@@ -13,7 +13,7 @@ export const ANYVARS = /\.tfvars(\.json)?$/i;
 // virtual path inside the zip, or null if it is not a Terraform source file we should read
 export function wantedPath(name) {
   const path = name.replace(/\\/g, '/').replace(/^(\.\/|\/)+/, '');
-  if (!(/\.tf(\.json)?$/i.test(path) || ANYVARS.test(path)) || path.endsWith('/')) return null;
+  if (!(/\.tf(\.json)?$/i.test(path) || ANYVARS.test(path) || /(^|\/)stack\.json$/i.test(path)) || path.endsWith('/')) return null;
   const parts = path.split('/');
   if (parts.some((p) => p === '..' || p === '.terraform' || p === '.git' || p === '__MACOSX' || p.startsWith('._'))) return null;
   return path;

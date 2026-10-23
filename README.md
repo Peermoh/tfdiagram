@@ -82,6 +82,9 @@ Optional: `PORT=8080 npm start`; `GITHUB_TOKEN=... npm start` for private repos 
 - A **Checks** list explains what was read, which folder was drawn, modules followed or missing, unknown variables,
   resources with `count = 0`, other providers, and so on (`lib/validate.js`).
 
+## stack.json patterns
+Some platform repos hold no Terraform resources, only a `stack.json` listing capabilities per tier (`{ "stack": { "cloud_routing": { "network": [ { "capability_name": "Cloud DNS", "include": ["GTS-1150-Amazon Route 53"] } ] }, "cloud_account": { "tier-2": {...}, "non-vpc": {...}, "tier-3": {...} }, "cloud_platform": {...} } }`). Upload such a zip (or paste the JSON) and it is drawn as tier boxes with each service's icon (AWS services are recognised by name, other tools like Splunk or Active Directory become plain tiles), plus a typical flow (Internet, DNS, load balancer, servers, storage / database) that is **inferred from the services**: the file does not say how they connect. Folders with a `stack.json` (dev, staging, prod) appear under Folder to draw. See `lib/stack.js` and `public/samples/stack-pattern.zip`.
+
 ## JSON
 `*.tf.json` files (in zips and GitHub repos) and pasted Terraform JSON are converted to HCL first (`lib/json.js`); `"${var.x}"` becomes the expression `var.x`, arrays of objects become blocks. `terraform.tfvars.json` and `*.auto.tfvars.json` apply like their `.tfvars` twins, and every `*.tfvars.json` appears in the Variable file dropdown. Not covered: `.tf.json` in the rare case of a repo too big for the zip download (the file-by-file fallback reads `.tf` only).
 

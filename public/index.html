@@ -148,6 +148,7 @@
   #stat { color:var(--muted); font-size:13.5px; margin:2px 0 8px; }
   #view { padding:14px; }
   #view[hidden] { display:none; }
+  #view.stackmode #tabs, #view.stackmode .tools > .group, #view.stackmode .tools > label.sw:has(#collapse) { display:none; }
   .tabs { display:flex; gap:6px; flex-wrap:wrap; margin:0 0 12px; }
   .tabs button { background:var(--card2); color:var(--muted); border:1px solid var(--line); padding:6px 14px; border-radius:999px; font-size:13.5px; font-weight:600; cursor:pointer; transition:all .18s; }
   .tabs button:hover { color:var(--fg); border-color:var(--accent); }
@@ -253,7 +254,8 @@
         <p class="tag">No zip handy? Download a sample, then drop it above:
           <a href="samples/aws-three-tier.zip" download>AWS three-tier</a> ·
           <a href="samples/azure-web-stack.zip" download>Azure web stack</a> ·
-          <a href="samples/multi-environment.zip" download>Multiple environments</a> (pick “All folders”)</p>
+          <a href="samples/multi-environment.zip" download>Multiple environments</a> (pick “All folders”) ·
+          <a href="samples/stack-pattern.zip" download>stack.json pattern</a></p>
         <p class="tag" id="zipnote">The zip is opened in your browser. Only the text of the .tf files is sent to be analysed; nothing is stored.</p>
       </div>
       <button id="go">Generate</button>
@@ -336,7 +338,7 @@
 
 import { unzipTerraform } from './unzip.js';
 import { COLORS, filterGraph, friendlyType, summarize, toMermaid } from './render.js';
-import { hasOfficialIcons, renderArchitecture, renderDiagram, setOfficialIcons } from './diagram.js';
+import { hasOfficialIcons, renderArchitecture, renderDiagram, renderStack, setOfficialIcons } from './diagram.js';
 const $ = (id) => document.getElementById(id);
 let lastData = null;
 // Scrolling on a phone stutters when a large diagram keeps animating, so the arrows pause while the page moves.
@@ -464,6 +466,13 @@ async function draw() {
   syncSegs();
   $('result').classList.toggle('empty', !lastData);
   if (!lastData) return;
+  $('view').classList.toggle('stackmode', Boolean(lastData.stack));
+  if (lastData.stack) {
+    $('legend').innerHTML = '<span class="k"><b>boxes</b> the tiers and groups named in stack.json; each tile is one service from its capability lists</span><span class="k"><b style="color:#e8710a">orange dashed arrows</b> a typical flow inferred from the services (stack.json does not say how they connect)</span><span class="k"><b>non-AWS tool</b> a tool the stack lists that is not an AWS service</span>';
+    $('stat').textContent = ''; $('src').textContent = ''; $('out').innerHTML = renderStack(lastData.stack, { animate: $('anim').checked });
+    applyZoom();
+    return;
+  }
   document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('on', b.dataset.layer === layer));
   const view = filterGraph(lastData.graph, {
     scope: $('scope').value, collapse: $('collapse').checked, query: $('q').value,
@@ -900,6 +909,14 @@ async function run() {
       $('zipdir').replaceChildren(new Option('★ All folders (each drawn as a module)', '*'), ...[...data.dirs].sort((a, b) => depth(a.dir) - depth(b.dir) || a.dir.localeCompare(b.dir)).map((d) => new Option(`${d.dir || '(top level)'}  ·  ${d.count} file${d.count === 1 ? '' : 's'}`, d.dir)));
       $('zipdir').value = data.root;
       $('zipdirLabel').hidden = data.dirs.length < 2;
+    }
+    $('view').classList.toggle('stackmode', Boolean(data.stack));
+    if (data.stack) {                                  // a stack.json: tier boxes instead of a resource graph
+      const n = data.stack.groups.reduce((a, g) => a + g.tiers.reduce((b, t) => b + t.categories.reduce((c, k) => c + k.items.length, 0), 0), 0);
+      $('status').textContent = `${where}stack.json: ${n} services`;
+      layer = ''; viewStack.length = 0; syncBack(); $('panel').hidden = true; $('view').hidden = false; $('tabs').replaceChildren();
+      await draw(); pendingRoot = ''; syncUrl();
+      return;
     }
     $('status').textContent = `${where}${data.graph.provider.toUpperCase()}: ${nodes.length} resources${mods ? `, ${mods} expanded modules` : ''}, ${edges.length} dependencies` + (data.truncated ? ' (repo tree truncated)' : '');
     if (!nodes.length) { $('view').hidden = true; $('out').textContent = 'No ' + data.graph.provider.toUpperCase() + ' resources found. Try the other cloud in the dropdown.'; return; }

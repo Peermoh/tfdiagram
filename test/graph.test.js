@@ -1310,3 +1310,46 @@ test('JSON: .tf.json is converted, terraform.tfvars.json applies, pasted JSON wo
   assert.equal(vars.checks[0].level, 'warn');
   assert.equal(fromPastedJson('not json'), null);
 });
+
+test('stack.json: capability lists per tier become a stack model (zip and pasted)', async () => {
+  const { handleApi } = await import('../lib/api.js');
+  const { parseStack, classifyService } = await import('../lib/stack.js');
+  const doc = { stack: { pattern_id: 'P-1', version: 'v1', region_pair: 'Mumbai', csp: 'AWS',
+    cloud_routing: { network: [{ capability_name: 'Cloud DNS', include: ['GTS-1150-Amazon Route 53'] }] },
+    cloud_account: {
+      'tier-2': { network: [{ capability_name: 'Load Balancer', include: ['GTS-1078-Elastic Load Balancing (ELB)'] }], compute: [{ capability_name: 'Virtual Machines', include: ['GTS-718-Amazon EC2'] }] },
+      'non-vpc': { monitoring: [{ capability_name: 'Alerting', include: ['GTS-1188-TSOM'] }] },
+      'tier-3': { storage: [{ capability_name: 'Database', include: ['GTS-869-Amazon RDS for Oracle'] }] },
+    },
+    custom_stack: { include: [] } } };
+  assert.deepEqual(classifyService('GTS-1078-Network Load Balancing (NLB)'), { label: 'Network Load Balancer (NLB)', type: 'aws_lb', vendor: 'aws' });
+  assert.equal(classifyService('GTS-2604-Amazon OpenSearch Service (successor to Amazon Elasticsearch Service)').type, 'aws_opensearch_domain');
+  assert.deepEqual(classifyService('GTS-4321-Splunk SIEM'), { label: 'Splunk SIEM', type: null, vendor: 'other' });
+  const model = parseStack(doc);
+  assert.deepEqual(model.groups.map((g) => g.key), ['cloud_routing', 'cloud_account']);       // empty custom_stack is dropped
+  assert.deepEqual(model.groups[1].tiers.map((t) => t.title), ['Tier 2', 'Non-VPC', 'Tier 3']);
+  const zip = await handleApi(new Request('http://x/api/diagram', { method: 'POST', body: JSON.stringify({ files: [{ path: 'dev/stack.json', content: JSON.stringify(doc) }, { path: 'dev/terraform.tfvars', content: 'a = 1\n' }, { path: 'prod/stack.json', content: JSON.stringify(doc) }] }) })).then((r) => r.json());
+  assert.ok(zip.stack && zip.root === 'dev');
+  assert.deepEqual(zip.dirs.map((d) => d.dir).sort(), ['dev', 'prod']);
+  assert.match(zip.checks[0].text, /5 services in 4 tiers/);
+  assert.deepEqual(zip.sources.map((s) => s.path).sort(), ['dev/stack.json', 'dev/terraform.tfvars']);
+  const pasted = await handleApi(new Request('http://x/api/diagram', { method: 'POST', body: JSON.stringify({ code: JSON.stringify(doc) }) })).then((r) => r.json());
+  assert.ok(pasted.stack);
+  const bad = await handleApi(new Request('http://x/api/diagram', { method: 'POST', body: JSON.stringify({ files: [{ path: 'stack.json', content: '{"stack":{"x":1}}' }] }) }));
+  assert.equal(bad.status, 400);
+});
+
+test('stack view draws tiers, services and the inferred flow', async () => {
+  const fs = await import('node:fs');
+  const vm = await import('node:vm');
+  if (!globalThis.dagre) vm.runInThisContext(fs.readFileSync(new URL('../public/vendor/dagre.min.js', import.meta.url), 'utf8'));
+  const { renderStack } = await import('../public/diagram.js');
+  const { parseStack } = await import('../lib/stack.js');
+  const svg = renderStack(parseStack({ stack: { csp: 'AWS', region_pair: 'Mumbai',
+    cloud_routing: { network: [{ capability_name: 'Cloud DNS', include: ['GTS-1-Amazon Route 53'] }] },
+    cloud_account: { 'tier-2': { network: [{ capability_name: 'Load Balancer', include: ['GTS-2-Elastic Load Balancing (ELB)'] }], compute: [{ capability_name: 'Virtual Machines', include: ['GTS-3-Amazon EC2'] }] }, 'tier-3': { storage: [{ capability_name: 'Database', include: ['GTS-4-Amazon RDS for Oracle'] }] } },
+    cloud_platform: { security: [{ capability_name: 'SIEM', include: ['GTS-5-Splunk SIEM'] }] } } }));
+  assert.ok(!svg.includes('NaN'));
+  for (const text of ['AWS · Mumbai', 'Cloud routing', 'Tier 2 (in the VPC)', 'Tier 3 (in the VPC)', 'Amazon Route 53', 'Amazon EC2', 'Splunk SIEM', 'non-AWS tool']) assert.ok(svg.includes(text), text);
+  assert.equal((svg.match(/class="flow"/g) ?? []).length, 4);       // Internet -> DNS -> load balancer -> EC2 -> database
+});
