@@ -137,6 +137,15 @@
   <details id="allcode" hidden><summary>Terraform code</summary>
     <p class="opts"><label>File: <select id="codefile"></select></label></p>
     <pre id="codeview" class="code"></pre></details>
+  <details id="mcpbox"><summary>Use with AI (MCP): connect TFDiagram to Claude or another AI app</summary>
+    <p>TFDiagram has an MCP server, so your own AI app can read a repo's architecture and answer questions, review it for risks or explain it. Your AI plan does the thinking; nothing is billed here.</p>
+    <p>Server URL: <code id="mcpurl"></code> <button type="button" id="mcpcopy" style="padding:3px 10px;font-size:13px">Copy</button></p>
+    <ul>
+      <li><b>Claude (web / desktop):</b> Settings → Connectors → Add custom connector → paste the URL.</li>
+      <li><b>Claude Code:</b> <code id="mcpcmd"></code></li>
+      <li>Then ask, for example: <i>"Analyse https://github.com/owner/repo with TFDiagram and tell me what is exposed to the internet."</i></li>
+    </ul>
+    <p class="tag">Tools: <code>analyze_terraform_repo</code>, <code>analyze_terraform_code</code>, <code>get_resource_code</code>. Public GitHub repos and pasted code only. The Terraform you send is processed here and not stored.</p></details>
   <details><summary>Mermaid source</summary><pre id="src"></pre></details>
   </div>
   <div id="panel" hidden></div>
@@ -245,6 +254,10 @@ function drawCode() {
   $('codeview').innerHTML = files.map((f) => `${want ? '' : `<b>── ${H(f.path)} ──</b>\n`}${codeHtml(f.content)}`).join('\n');
 }
 $('codefile').addEventListener('change', drawCode);
+
+$('mcpurl').textContent = `${location.origin}/mcp`;
+$('mcpcmd').textContent = `claude mcp add --transport http tfdiagram ${location.origin}/mcp`;
+$('mcpcopy').addEventListener('click', async () => { try { await navigator.clipboard.writeText(`${location.origin}/mcp`); $('mcpcopy').textContent = 'Copied ✓'; } catch { prompt('Copy this URL:', `${location.origin}/mcp`); } setTimeout(() => { $('mcpcopy').textContent = 'Copy'; }, 1800); });
 
 // ---- Share link: the repo plus the view (style, layer, folder, filters...) in the address
 let pendingRoot = '';

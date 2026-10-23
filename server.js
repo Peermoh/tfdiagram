@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { handleApi, handleSearch } from './lib/api.js';
+import { handleMcp } from './lib/mcp.js';
 
 const PUBLIC = join(fileURLToPath(new URL('.', import.meta.url)), 'public');
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png' };
@@ -14,6 +15,12 @@ http.createServer(async (req, res) => {
   try {
     if (url.pathname === '/api/search') {
       const out = await handleSearch(new Request(url, { method: 'GET', headers: req.headers }), process.env);
+      res.writeHead(out.status, Object.fromEntries(out.headers));
+      return res.end(await out.text());
+    }
+    if (url.pathname === '/mcp') {
+      const body = await new Promise((resolve) => { const chunks = []; req.on('data', (c) => chunks.push(c)); req.on('end', () => resolve(Buffer.concat(chunks))); });
+      const out = await handleMcp(new Request(url, { method: req.method, headers: req.headers, body: req.method === 'POST' ? body : undefined }), process.env);
       res.writeHead(out.status, Object.fromEntries(out.headers));
       return res.end(await out.text());
     }

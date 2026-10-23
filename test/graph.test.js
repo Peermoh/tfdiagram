@@ -1207,3 +1207,25 @@ test('GitHub URL: the repository comes as one zip (no API listing, no rate limit
     assert.ok(asked.some((u) => u.includes('api.github.com') && u.includes('/git/trees/')));
   } finally { globalThis.fetch = real; }
 });
+
+test('MCP server: initialize, list tools, analyse pasted code, fetch a resource block', async () => {
+  const { handleMcp } = await import('../lib/mcp.js');
+  const call = async (body) => { const r = await handleMcp(new Request('https://t.example/mcp', { method: 'POST', body: JSON.stringify(body) })); return { status: r.status, json: r.status === 202 ? null : await r.json() }; };
+  const init = await call({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 't', version: '1' } } });
+  assert.equal(init.json.result.serverInfo.name, 'tfdiagram');
+  assert.equal(init.json.result.protocolVersion, '2025-06-18');
+  assert.equal((await call({ jsonrpc: '2.0', method: 'notifications/initialized' })).status, 202);
+  const list = await call({ jsonrpc: '2.0', id: 2, method: 'tools/list' });
+  assert.deepEqual(list.json.result.tools.map((t) => t.name), ['analyze_terraform_repo', 'analyze_terraform_code', 'get_resource_code']);
+  const code = 'resource "aws_vpc" "v" { cidr_block = "10.0.0.0/16" }\nresource "aws_security_group" "web" {\n  vpc_id = aws_vpc.v.id\n  ingress {\n    from_port = 22\n    to_port = 22\n    protocol = "tcp"\n    cidr_blocks = ["0.0.0.0/0"]\n  }\n}\nresource "aws_instance" "app" {\n  vpc_security_group_ids = [aws_security_group.web.id]\n}';
+  const a = await call({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'analyze_terraform_code', arguments: { code } } });
+  const text = a.json.result.content[0].text;
+  assert.match(text, /aws_vpc\.v — VPC \[10\.0\.0\.0\/16\]/);
+  assert.match(text, /aws_instance\.app → aws_security_group\.web/);
+  assert.match(text, /MEDIUM: aws_security_group\.web allows inbound tcp 22 from the whole internet/);
+  const g = await call({ jsonrpc: '2.0', id: 4, method: 'tools/call', params: { name: 'get_resource_code', arguments: { code, resource_id: 'aws_security_group.web' } } });
+  assert.match(g.json.result.content[0].text, /ingress \{[\s\S]*cidr_blocks/);
+  const bad = await call({ jsonrpc: '2.0', id: 5, method: 'tools/call', params: { name: 'get_resource_code', arguments: { code, resource_id: 'nope' } } });
+  assert.equal(bad.json.result.isError, true);
+  assert.equal((await handleMcp(new Request('https://t.example/mcp'))).status, 405);
+});
