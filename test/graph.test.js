@@ -1254,7 +1254,26 @@ test('Variable file: a picked .tfvars is applied on top of terraform.tfvars; tfv
   assert.ok(prod.graph.nodes.some((n) => n.id === 'aws_s3_bucket.b'));
   assert.equal(prod.varChoice, 'envs/prod.tfvars');
   assert.ok(prod.checks.some((c) => /Applied values from envs\/prod\.tfvars/.test(c.text)));
-  const only = await post({ code: 'environment = "prod"\ninstance_count = 3\nvpc_cidr = "10.0.0.0/16"\n' });
+  const only = await post({ code: 'foo = "prod"\nbar = 3\n' });
   assert.equal(only.checks[0].level, 'error');
   assert.match(only.checks[0].text, /looks like a \.tfvars file/);
+});
+
+test('a .tfvars pasted alone is drawn as a labelled sketch from its variable names', async () => {
+  const { handleApi } = await import('../lib/api.js');
+  const post = (body) => handleApi(new Request('http://x/api/diagram', { method: 'POST', body: JSON.stringify(body) })).then((r) => r.json());
+  const aws = await post({ code: 'environment = "prod"\nvpc_cidr = "10.0.0.0/16"\npublic_subnets = ["10.0.1.0/24", "10.0.2.0/24"]\nprivate_subnets = ["10.0.10.0/24"]\nenable_nat_gateway = true\ninstance_count = 3\ninstance_type = "t3.large"\nenable_alb = true\ndb_engine = "postgres"\nbucket_name = "assets"\n' });
+  const ids = aws.graph.nodes.map((n) => n.id);
+  for (const want of ['aws_vpc.vpc', 'aws_subnet.public_0', 'aws_subnet.public_1', 'aws_subnet.private_0', 'aws_internet_gateway.igw', 'aws_nat_gateway.nat', 'aws_instance.app', 'aws_lb.alb', 'aws_db_instance.db', 'aws_s3_bucket.bucket']) assert.ok(ids.includes(want), `${want} in ${ids.join(', ')}`);
+  assert.equal(aws.graph.nodes.find((n) => n.id === 'aws_instance.app').instances, 3);
+  assert.deepEqual(aws.graph.nodes.find((n) => n.id === 'aws_subnet.public_1').cidrs, ['10.0.2.0/24']);
+  assert.equal(aws.checks[0].level, 'warn');
+  assert.match(aws.checks[0].text, /SKETCH, not your real architecture/);
+  const az = await post({ code: 'location = "westeurope"\naddress_space = ["10.20.0.0/16"]\nsubnet_prefixes = ["10.20.1.0/24", "10.20.2.0/24"]\nvm_size = "Standard_B2s"\nvm_count = 2\nstorage_account_name = "data"\n' });
+  const azIds = az.graph.nodes.map((n) => n.id);
+  assert.ok(azIds.includes('azurerm_virtual_network.vnet') && azIds.includes('azurerm_subnet.subnet0') && azIds.includes('azurerm_linux_virtual_machine.vm') && azIds.includes('azurerm_storage_account.data'), azIds.join(', '));
+  assert.equal(az.graph.nodes.find((n) => n.id === 'azurerm_linux_virtual_machine.vm').instances, 2);
+  const nothing = await post({ code: 'foo = 1\nbar = "x"\n' });
+  assert.equal(nothing.graph.nodes.length, 0);
+  assert.equal(nothing.checks[0].level, 'error');
 });
