@@ -5,6 +5,46 @@
 Turn Terraform (AWS or Azure) into an architecture diagram: cloud, VPC and subnets, big service icons, animated traffic
 flow, and the security-group rules that allow each arrow. It parses the `.tf` files directly instead of guessing with an LLM.
 
+## Screenshots
+
+Made from the sample projects in `public/samples/` (AWS three-tier, multiple environments).
+
+**Home**
+
+![Home: pick how to give it Terraform](docs/screenshots/01-home.png)
+
+**Architecture style**: cloud, VPC and subnet boxes, official icons, animated traffic flow, and a pill on each arrow naming the security-group rule that lets the traffic in (green allowed, amber open to the internet, red none found).
+
+![Architecture style](docs/screenshots/02-architecture.png)
+
+**Controls**: layers, filter, style, direction, zoom, SVG/PNG export and a link that reopens the same view.
+
+![Toolbar and diagram](docs/screenshots/03-toolbar-and-diagram.png)
+
+**Cards style**
+
+![Cards style](docs/screenshots/04-cards.png)
+
+**Click a resource** for its settings, rules and the exact Terraform block (or the whole file).
+
+![Details and code](docs/screenshots/05-details-and-code.png)
+
+**Dark theme**
+
+![Dark theme](docs/screenshots/06-dark.png)
+
+**All folders**: every folder of a repo or zip drawn at once, each as a module box.
+
+![All folders](docs/screenshots/07-all-folders.png)
+
+**Connect your own AI (MCP)**
+
+![Connect AI](docs/screenshots/08-connect-ai.png)
+
+**On a phone**
+
+<img src="docs/screenshots/09-mobile.png" alt="Mobile layout" width="300">
+
 ## Run it locally (private: your code stays on your machine)
 
 Needs Node.js 20+ and git. There are no runtime dependencies.

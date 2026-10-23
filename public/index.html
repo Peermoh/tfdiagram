@@ -72,7 +72,7 @@
   #theme { display:none; }
 
   main { max-width:1180px; margin:0 auto; padding:26px 16px 70px; }
-  .page { animation:rise .35s cubic-bezier(.2,.7,.2,1) both; } .page[hidden] { display:none; }
+  .page { animation:rise .35s cubic-bezier(.2,.7,.2,1) backwards; }   /* not "both": a lingering transform would make the fixed details sheet position itself against the page */ .page[hidden] { display:none; }
   @keyframes rise { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:none; } }
   .hero { padding:10px 0 20px; }
   .hero h1 { margin:0 0 8px; font-size:clamp(26px,4.4vw,40px); line-height:1.1; letter-spacing:-.03em; font-weight:800; }
