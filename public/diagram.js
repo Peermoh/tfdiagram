@@ -257,7 +257,8 @@ export function renderDiagram(graph, { direction = 'LR', animate = false } = {})
 <g transform="translate(11 ${h / 2 - 25})" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${glyph(icon)}</g>
 <text x="24" y="${h / 2 + 21}" text-anchor="middle" font-size="9.5" font-weight="700" fill="#fff" letter-spacing=".3">${esc(code)}</text>`;
     const extra = n.summary || cidrText(n.cidrs);
-    const badge = total > 1 ? `<circle cx="${b.cw}" cy="0" r="12" fill="${color}" stroke="var(--card)" stroke-width="2.5"/><text x="${b.cw}" y="4.5" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">${total}</text>` : '';
+    const unknownCount = n.countInfo?.state === 'unknown' || n.unknown;
+    const badge = total > 1 ? `<circle cx="${b.cw}" cy="0" r="12" fill="${color}" stroke="var(--card)" stroke-width="2.5"/><text x="${b.cw}" y="4.5" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">${total}</text>` : unknownCount ? `<circle cx="${b.cw}" cy="0" r="12" fill="#d97706" stroke="var(--card)" stroke-width="2.5"><title>count / for_each could not be worked out: drawn once</title></circle><text x="${b.cw}" y="4.5" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">?</text>` : '';
     const card = `<g transform="translate(${x} ${y})"${faint ? ' opacity="0.5"' : ''}${grouped ? ` data-expand="${esc(n.type)}"` : b.hdr ? '' : ` data-node="${esc(n.id)}"`} style="cursor:pointer">
 <title>${esc(full)}</title>
 <rect width="${b.cw}" height="${h}" rx="9" fill="var(--card)" stroke="${color}" stroke-width="1.6"${faint ? ' stroke-dasharray="5 4"' : ''}/>
@@ -339,6 +340,7 @@ export function renderArchitecture(graph, { animate = true, direction = 'LR' } =
     const t = tileNodes.get(key);
     t.names.push(n.label ?? n.name);
     t.ids.push(n.id);
+    if (n.countInfo?.state === 'unknown') t.unknown = true;
     t.total += n.kind === 'group' ? n.count : n.instances ?? 1;
     tileOf.set(n.id, key);
   }
@@ -512,7 +514,7 @@ export function renderArchitecture(graph, { animate = true, direction = 'LR' } =
     const names = t.names.length > 2 ? `${t.names.slice(0, 2).join(', ')} +${t.names.length - 2}` : t.names.join(', ');
     svg.push(`<g transform="translate(${d.x - TW / 2} ${d.y - TH / 2})" data-node="${esc(n.id)}" style="cursor:pointer"><title>${esc(`${label}: ${t.names.join(', ')}${t.total > 1 ? ` (×${t.total})` : ''}. Click for details.`)}</title>
 ${icon}
-${t.total > 1 ? `<g><rect x="${TW / 2 + 12}" y="0" width="30" height="18" rx="9" fill="${ARCH.cloud}" stroke="var(--card)" stroke-width="2"/><text x="${TW / 2 + 27}" y="13" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">×${t.total}</text></g>` : ''}
+${t.total > 1 || t.unknown ? `<g><rect x="${TW / 2 + 12}" y="0" width="30" height="18" rx="9" fill="${t.unknown && t.total <= 1 ? '#d97706' : ARCH.cloud}" stroke="var(--card)" stroke-width="2"><title>${t.unknown ? 'the count of at least one of these could not be worked out' : 'copies'}</title></rect><text x="${TW / 2 + 27}" y="13" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">${t.total > 1 ? `×${t.total}${t.unknown ? '+' : ''}` : '×?'}</text></g>` : ''}
 <text x="${TW / 2}" y="78" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--fg)">${esc(clip(label, 20))}</text>
 <text x="${TW / 2}" y="94" text-anchor="middle" font-size="11" fill="var(--muted)">${esc(clip(names, 22))}</text></g>`);
   }

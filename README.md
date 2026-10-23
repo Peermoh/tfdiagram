@@ -91,6 +91,7 @@ Optional: `PORT=8080 npm start`; `GITHUB_TOKEN=... npm start` for private repos 
 - Click a resource: its settings, rules, routes, IP ranges and its Terraform block (or the whole file with the block
   highlighted). A **Terraform code** section shows every file.
 - **Export** the diagram as SVG or PNG, or **Copy link** to reopen the same view (GitHub URL mode).
+- A **Resource inventory** (under the diagram) lists every resource and module block as written, including hidden plumbing and ones that are not created: how many copies each makes, how `count` / `for_each` is written, whether the number is fixed, worked out from variables, zero or unknown (with the `for_each` keys), and where it is in the code. The details sheet shows the same for the clicked resource, and a `?` badge marks a count that could not be worked out.
 - A **Checks** list explains what was read, which folder was drawn, modules followed or missing, unknown variables,
   resources with `count = 0`, other providers, and so on (`lib/validate.js`).
 

@@ -43,6 +43,7 @@
   --i-back:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M19 12H5M11 6l-6 6 6 6%22/%3E%3C/svg%3E");
   --i-list:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01%22/%3E%3C/svg%3E");
   --i-lock:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 11h14v9H5zM8 11V8a4 4 0 0 1 8 0v3'/%3E%3C/svg%3E");
+  --i-table:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 5h16v14H4zM4 10h16M4 15h16M10 5v14'/%3E%3C/svg%3E");
   --i-key:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M8 15a4 4 0 1 1 3.9-4.9H21v3h-3v3h-3v-3h-3.1A4 4 0 0 1 8 15z%22/%3E%3C/svg%3E");
   }
   @media (prefers-color-scheme: dark) { :root:not([data-theme=light]) { --bg:#0d0f1a; --fg:#e8eaf6; --muted:#98a0b8; --line:#262a3d; --card:#151828; --card2:#1a1e31; --accent:#9d85ff; --accent2:#c084fc; --accent-soft:rgba(157,133,255,.14); --edge:#94a3b8; --link:#a5b4fc; --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 28px rgba(0,0,0,.35); --ring:0 0 0 3px rgba(157,133,255,.3); --grid:rgba(255,255,255,.06); color-scheme:dark; } }
@@ -184,6 +185,7 @@
   .langkey { display:flex; flex-wrap:wrap; gap:4px 14px; font-size:12.5px; color:var(--muted); } .langkey i { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:5px; }
   .xstats { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; } .xstats .chip b { color:var(--fg); }
   table.xt { border-collapse:collapse; width:100%; font-size:13.5px; margin:8px 0 14px; } table.xt th, table.xt td { text-align:left; padding:6px 10px 6px 0; border-bottom:1px solid var(--line); vertical-align:top; } table.xt th { color:var(--muted); font-size:11.5px; text-transform:uppercase; letter-spacing:.05em; }
+  tr.invgroup td { background:var(--card2); padding-top:8px; } .statechip { display:inline-block; padding:1px 9px; border-radius:999px; font-size:12px; font-weight:600; background:var(--accent-soft); color:var(--accent); } .statechip.ok { background:rgba(22,163,74,.12); color:var(--good); } .statechip.warn { background:rgba(217,119,6,.14); color:var(--warn); } .statechip.off { background:rgba(100,116,139,.15); color:var(--muted); }
   .kindtag { display:inline-block; padding:1px 9px; border-radius:999px; font-size:12px; font-weight:600; background:var(--accent-soft); color:var(--accent); }
   details.fold { margin-top:14px; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:4px 16px; box-shadow:var(--shadow); }
   details.fold > summary { cursor:pointer; padding:10px 0; font-weight:700; list-style:none; display:flex; align-items:center; } details.fold > summary::-webkit-details-marker { display:none; }
@@ -319,6 +321,10 @@
     <div id="legend" class="legend"></div>
     <div id="backbar" hidden><button type="button" id="back" class="ic" style="--i:var(--i-back)">Back</button><span id="backlabel"></span></div>
     <div id="out"></div>
+    <details class="fold" id="inventory" hidden><summary class="ic" style="--i:var(--i-table)">Resource inventory: how many of each</summary>
+      <div id="invsummary" class="tag" style="margin:2px 0 8px"></div>
+      <div class="optbar" style="margin:0 0 6px;padding:0;border:0"><label class="sw"><input type="checkbox" id="invmulti"> Only those with count / for_each</label><label class="sw"><input type="checkbox" id="invhidden" checked> Include hidden and not-created ones</label><input type="search" id="invq" placeholder="Filter by name or type" style="padding:6px 12px 6px 34px;background:var(--card2) var(--i-filter) 11px center/16px no-repeat"></div>
+      <div id="invbody" style="overflow:auto"></div></details>
     <details class="fold" id="allcode" hidden><summary class="ic" style="--i:var(--i-code)">Terraform code</summary>
       <p class="tag"><label>File <select id="codefile"></select></label></p>
       <pre id="codeview" class="code"></pre></details>
@@ -558,6 +564,7 @@ async function draw() {
   $('result').classList.toggle('empty', !lastData);
   if (!lastData) return;
   $('view').classList.toggle('stackmode', Boolean(lastData.stack));
+  drawInventory();
   if (lastData.stack) {
     $('legend').innerHTML = '<span class="k"><b>boxes</b> the tiers and groups named in stack.json; each tile is one service from its capability lists</span><span class="k"><b style="color:#e8710a">orange dashed arrows</b> a typical flow inferred from the services (stack.json does not say how they connect)</span><span class="k"><b>non-AWS tool</b> a tool the stack lists that is not an AWS service</span>';
     $('stat').textContent = ''; $('src').textContent = ''; $('out').innerHTML = renderStack(lastData.stack, { animate: $('anim').checked });
@@ -913,6 +920,37 @@ function syncVarFiles(files, chosen) {
 }
 $('varfile').addEventListener('change', () => { if (lastData) run(); });
 
+// ---- Resource inventory: every block as written, how many copies it makes and why
+const STATE_CHIP = { single: ['', ''], fixed: ['fixed', ''], evaluated: ['worked out', 'ok'], off: ['not created', 'off'], unknown: ['unknown', 'warn'] };
+function drawInventory() {
+  const box = $('inventory');
+  const inv = lastData?.graph?.inventory;
+  box.hidden = !inv?.length || Boolean(lastData?.stack);
+  if (box.hidden) return;
+  const q = $('invq').value.trim().toLowerCase();
+  const rows = inv.filter((r) => ($('invhidden').checked || (r.shown && !r.plumbing)) && (!$('invmulti').checked || r.mode !== 'single') && (!q || `${r.id} ${friendlyType(r.type)}`.toLowerCase().includes(q)));
+  const copies = (r) => (r.state === 'unknown' ? 0 : r.n);
+  const total = rows.reduce((a, r) => a + copies(r), 0);
+  const withCount = inv.filter((r) => r.mode !== 'single');
+  $('invsummary').textContent = `${inv.length} blocks in the code${inv.length >= 2000 ? ' (first 2000)' : ''}, making ${inv.reduce((a, r) => a + copies(r), 0)} things when applied with the values we can see. ${withCount.length} use count / for_each; ${inv.filter((r) => r.state === 'off').length} work out to 0 (not created); ${inv.filter((r) => r.state === 'unknown').length} could not be worked out (counted once or not at all).`;
+  const groups = new Map();
+  for (const r of rows) { if (!groups.has(r.type)) groups.set(r.type, []); groups.get(r.type).push(r); }
+  let html = '<table class="xt"><tr><th>Resource</th><th>Copies</th><th>How the count is written</th><th>Status</th><th>Where</th></tr>';
+  for (const [type, list] of groups) {
+    const t = list.reduce((a, r) => a + copies(r), 0);
+    html += `<tr class="invgroup"><td colspan="5"><b>${H(type === 'module' ? 'Modules' : friendlyType(type))}</b> <span class="tag">${H(type)} · ${list.length} block${list.length === 1 ? '' : 's'}, ${t} cop${t === 1 ? 'y' : 'ies'}</span></td></tr>`;
+    for (const r of list) {
+      const [label, cls] = STATE_CHIP[r.state];
+      html += `<tr><td><code>${H(r.id.split('.').slice(r.module ? r.module.split('.').length : 0).join('.'))}</code>${r.module ? `<br><span class="tag">${H(r.module)}</span>` : ''}${r.plumbing ? ' <span class="tag">(hidden plumbing)</span>' : ''}</td>
+        <td><b>${r.n === null ? '?' : r.n}</b></td>
+        <td>${r.mode === 'single' ? '<span class="tag">one</span>' : `<code>${H(r.mode)} = ${H(r.expr)}</code>${r.keys?.length ? `<br>${r.keys.map((k) => `<span class="chip">${H(k)}</span>`).join(' ')}${r.n > r.keys.length ? ' …' : ''}` : ''}`}</td>
+        <td>${label ? `<span class="statechip ${cls}">${H(label)}</span>` : ''}</td><td class="tag">${H(r.file)}:${r.line}</td></tr>`;
+    }
+  }
+  $('invbody').innerHTML = groups.size ? `${html}</table>` : '<p class="tag">Nothing matches.</p>';
+}
+for (const id of ['invmulti', 'invhidden', 'invq']) $(id).addEventListener('input', drawInventory);
+
 function showChecks(checks) {
   const box = $('checks');
   if (!checks?.length) { box.hidden = true; return; }
@@ -996,11 +1034,16 @@ function showDetails(id) {
   }
   const alone = shownEdges && !shownEdges.some((e) => e.from === id || e.to === id)
     ? '<p class="tag">No arrows: no other resource in this Terraform refers to this one, and it refers to none. It may be linked outside this code (another repo, the console) or through something that can\'t be followed statically.</p>' : '';
-  const copies = (n.instances > 1 ? `<p>Creates <b>${n.instances}</b> copies (count / for_each).</p>` : '') + (n.inactive ? '<p class="tag">Not created with the values we can see: its count / for_each works out to 0.</p>' : '');
+  const ci = n.countInfo;
+  const STATE = { fixed: 'written as a number', evaluated: 'worked out from the variables and locals in the code', off: 'zero: not created with these values', unknown: 'could not be worked out, so it is drawn once; the real number depends on values we do not have (give them under More options > Variable values)' };
+  const copies = ci
+    ? `<p><b>${ci.mode === 'count' ? 'Count' : 'for_each'}:</b> <code>${ci.mode} = ${H(ci.expr)}</code> → <b>${ci.n === null ? '?' : ci.n}</b> cop${ci.n === 1 ? 'y' : 'ies'} <span class="tag">(${STATE[ci.state]})</span>${ci.keys?.length ? `<br>${ci.keys.map((k) => `<span class="chip">${H(k)}</span>`).join(' ')}${ci.n > ci.keys.length ? ' …' : ''}` : ''}</p>`
+    : (n.instances > 1 ? `<p>Creates <b>${n.instances}</b> copies (count / for_each).</p>` : '');
+  const off = n.inactive ? '<p class="tag">Not created with the values we can see: its count / for_each works out to 0.</p>' : '';
   const ranges = n.cidrs?.length ? `<p>IP range${n.cidrs.length > 1 ? 's' : ''}: ${n.cidrs.map((c) => `<code>${H(c)}</code>`).join(', ')}</p>` : '';
   const type = n.kind === 'module' ? 'Module' : friendlyType(n.type);
   $('panel').innerHTML = `<button id="close" type="button">✕</button><h2>${H(type)} · ${H(n.label ?? n.name)}</h2>
-    <div class="meta">${H(n.kind === 'module' ? `module.${n.name}` : `${n.type}.${n.name}`)} · ${sourceLink(n)}</div>${copies}${ranges}${body}${alone}${codeSection(n)}`;
+    <div class="meta">${H(n.kind === 'module' ? `module.${n.name}` : `${n.type}.${n.name}`)} · ${sourceLink(n)}</div>${copies}${off}${ranges}${body}${alone}${codeSection(n)}`;
   $('panel').hidden = false;
   const wf = $('wholefile');
   if (wf) wf.addEventListener('click', () => {

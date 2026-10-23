@@ -164,6 +164,7 @@ export function summarize(graph) {
     g.count += n.instances ?? 1;                    // a resource with count = 3 stands for 3 things
     g.ghost = g.ghost && Boolean(n.ghost);          // dimmed only if every member is
     g.inactive = g.inactive && Boolean(n.inactive);
+    if (n.countInfo?.state === 'unknown') g.unknown = true;       // at least one member's count could not be worked out
   }
   // one arrow per pair of groups; remember which individual links it stands for (shown on hover, counted on the arrow)
   const merged = new Map();

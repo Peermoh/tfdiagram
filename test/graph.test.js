@@ -1353,3 +1353,50 @@ test('stack view draws tiers, services and the inferred flow', async () => {
   for (const text of ['AWS · Mumbai', 'Cloud routing', 'Tier 2 (in the VPC)', 'Tier 3 (in the VPC)', 'Amazon Route 53', 'Amazon EC2', 'Splunk SIEM', 'non-AWS tool']) assert.ok(svg.includes(text), text);
   assert.equal((svg.match(/class="flow"/g) ?? []).length, 4);       // Internet -> DNS -> load balancer -> EC2 -> database
 });
+
+test('inventory: every block with its count, how it is written, state and for_each keys (also hidden ones)', () => {
+  const g = buildGraph([{ path: 'a.tf', content: `
+    variable "n" { default = 3 }
+    variable "azs" { default = ["a", "b"] }
+    resource "aws_instance" "app" {
+      count = var.n
+    }
+    resource "aws_subnet" "s" {
+      count = length(var.azs)
+    }
+    resource "aws_s3_bucket" "b" {
+      for_each = toset(["logs", "assets"])
+    }
+    resource "aws_s3_bucket" "m" {
+      for_each = {
+        a = 1
+        "b-2" = 2
+      }
+    }
+    resource "aws_eip" "e" {
+      count = var.missing ? 1 : 0
+    }
+    resource "aws_nat_gateway" "off" {
+      count = 0
+    }
+    resource "aws_route_table_association" "r" {
+      count = 2
+    }
+    resource "aws_vpc" "v" {}
+    module "m1" {
+      source = "./x"
+      count  = 2
+    }` }]);
+  const by = Object.fromEntries(g.inventory.map((r) => [r.id, r]));
+  assert.deepEqual([by['aws_instance.app'].mode, by['aws_instance.app'].n, by['aws_instance.app'].state, by['aws_instance.app'].expr], ['count', 3, 'evaluated', 'var.n']);
+  assert.equal(by['aws_subnet.s'].n, 2);
+  assert.deepEqual(by['aws_s3_bucket.b'].keys, ['logs', 'assets']);
+  assert.deepEqual(by['aws_s3_bucket.m'].keys, ['a', 'b-2']);
+  assert.deepEqual([by['aws_eip.e'].n, by['aws_eip.e'].state], [null, 'unknown']);
+  assert.deepEqual([by['aws_nat_gateway.off'].n, by['aws_nat_gateway.off'].state, by['aws_nat_gateway.off'].shown], [0, 'off', false]);
+  assert.deepEqual([by['aws_route_table_association.r'].plumbing, by['aws_route_table_association.r'].n, by['aws_route_table_association.r'].shown], [true, 2, false]);   // hidden plumbing is still counted
+  assert.deepEqual([by['aws_vpc.v'].mode, by['aws_vpc.v'].n], ['single', 1]);
+  assert.deepEqual([by['module.m1'].kind, by['module.m1'].n, by['module.m1'].state], ['module', 2, 'fixed']);
+  assert.equal(g.nodes.find((n) => n.id === 'aws_instance.app').countInfo.expr, 'var.n');
+  assert.equal(g.nodes.find((n) => n.id === 'aws_eip.e').countInfo.state, 'unknown');
+});
