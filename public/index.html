@@ -14,7 +14,7 @@
   :root[data-theme=light] { color-scheme:light; }
   input[type=search] { padding:6px 10px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--fg); font:inherit; }
   :root[data-theme=dark] { --bg:#111; --fg:#eee; --muted:#999; --line:#333; --accent:#fb923c; --card:#1b1b1b; --edge:#94a3b8; --link:#7db4ff; color-scheme:dark; }
-  .zoom button { padding:3px 11px; font-size:15px; background:transparent; color:var(--fg); border:1px solid var(--line); } .zoom button:first-child { border-radius:6px 0 0 6px; } .zoom button:last-child { border-radius:0 6px 6px 0; } .zoom button + button { margin-left:-1px; } #zreset { min-width:58px; font-size:13px; }
+  .zoom button { padding:3px 11px; white-space:nowrap; font-size:15px; background:transparent; color:var(--fg); border:1px solid var(--line); } .zoom button:first-child { border-radius:6px 0 0 6px; } .zoom button:last-child { border-radius:0 6px 6px 0; } .zoom button + button { margin-left:-1px; } #zreset { min-width:58px; font-size:13px; }
   #themebox { float:right; font-size:14px; color:var(--muted); }
   * { box-sizing: border-box; }
   body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.5 system-ui, sans-serif; }
@@ -128,6 +128,7 @@
       <label id="animLabel"><input type="checkbox" id="anim" checked> Animate traffic</label>
       <label><input type="checkbox" id="fit"> Fit to width</label>
       <span id="zoombox" class="zoom"><button type="button" id="zout" title="Zoom out">−</button><button type="button" id="zreset" title="Back to 100%">100%</button><button type="button" id="zin" title="Zoom in">+</button></span>
+      <span id="expbox" class="zoom"><button type="button" id="dlsvg" title="Download the diagram as an SVG image">SVG ↓</button><button type="button" id="dlpng" title="Download the diagram as a PNG image">PNG ↓</button><button type="button" id="copylink" title="Copy a link that reopens this exact view">Copy link</button></span>
     </div>
   </div>
   <div id="legend" class="legend"></div>
@@ -227,6 +228,7 @@ async function draw() {
     const el = $('out').querySelector('svg');
     applyZoom();
   } catch (e) { $('out').textContent = 'Could not draw this view: ' + e.message; }
+  if (!pendingRoot) syncUrl();
 }
 
 function showAllCode(sources) {
@@ -243,6 +245,86 @@ function drawCode() {
   $('codeview').innerHTML = files.map((f) => `${want ? '' : `<b>── ${H(f.path)} ──</b>\n`}${codeHtml(f.content)}`).join('\n');
 }
 $('codefile').addEventListener('change', drawCode);
+
+// ---- Share link: the repo plus the view (style, layer, folder, filters...) in the address
+let pendingRoot = '';
+function shareUrl() {
+  const u = new URLSearchParams();
+  const repoMode = document.querySelector('input[name=mode]:checked').value === 'repo';
+  if (!repoMode || !$('repo').value) return null;
+  u.set('repo', $('repo').value);
+  const root = $('repodir').options.length ? $('repodir').value : pendingRoot;
+  if (root) u.set('root', root);
+  if ($('style').value !== 'arch') u.set('style', $('style').value);
+  if ($('dir').value !== 'LR') u.set('dir', $('dir').value);
+  if ($('detail').value !== 'overview') u.set('detail', $('detail').value);
+  if (layer) u.set('layer', layer);
+  if ($('q').value) u.set('q', $('q').value);
+  if ($('scope').value) u.set('scope', $('scope').value);
+  if ($('collapse').checked) u.set('collapse', '1');
+  if (!$('anim').checked) u.set('anim', '0');
+  if ($('provider').value !== 'auto') u.set('provider', $('provider').value);
+  if ($('inactive').checked) u.set('inactive', '1');
+  if (!$('simplify').checked) u.set('simplify', '0');
+  if ($('varvals').value.trim()) u.set('vars', $('varvals').value.slice(0, 1500));
+  return `${location.origin}${location.pathname}?${u}`;
+}
+function syncUrl() { const u = shareUrl(); if (u) { try { history.replaceState(null, '', u); } catch {} } }
+$('copylink').addEventListener('click', async () => {
+  const u = shareUrl();
+  const old = $('copylink').textContent;
+  if (!u) { $('copylink').textContent = 'Only for GitHub URLs'; setTimeout(() => { $('copylink').textContent = old; }, 1800); return; }
+  try { await navigator.clipboard.writeText(u); $('copylink').textContent = 'Copied ✓'; } catch { prompt('Copy this link:', u); }
+  setTimeout(() => { $('copylink').textContent = old; }, 1800);
+});
+
+// ---- Export: a standalone SVG (theme colours and icons baked in) or a PNG of it
+async function standaloneSvg() {
+  const el = $('out').querySelector('svg');
+  if (!el) return null;
+  const cs = getComputedStyle(document.documentElement);
+  const val = (n) => cs.getPropertyValue(n).trim() || '#888';
+  const clone = el.cloneNode(true);
+  const [w, h] = clone.getAttribute('viewBox').split(/[ ,]+/).slice(2).map(Number);
+  const vb = clone.getAttribute('viewBox').split(/[ ,]+/).map(Number);
+  clone.setAttribute('width', w); clone.setAttribute('height', h);
+  clone.removeAttribute('style');
+  clone.insertAdjacentHTML('afterbegin', `<rect x="${vb[0]}" y="${vb[1]}" width="${w}" height="${h}" fill="${val('--bg')}"/>`);
+  let text = new XMLSerializer().serializeToString(clone).replace(/var\(--([\w-]+)\)/g, (_, n) => val(`--${n}`));
+  const hrefs = [...new Set([...text.matchAll(/<image[^>]*? href="([^"]+)"/g)].map((m) => m[1]))];
+  for (const href of hrefs) {
+    try {
+      const blob = await (await fetch(href)).blob();
+      const data = await new Promise((ok) => { const r = new FileReader(); r.onload = () => ok(r.result); r.readAsDataURL(blob); });
+      text = text.split(`href="${href}"`).join(`href="${data}"`);
+    } catch {}
+  }
+  return { text, w, h };
+}
+function save(blob, name) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name; document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+const fileBase = () => (($('repo').value.match(/github\.com\/([^/]+\/[^/?#]+)/)?.[1] ?? 'terraform').replace(/[^\w.-]+/g, '-')) + '-diagram';
+$('dlsvg').addEventListener('click', async () => {
+  const s = await standaloneSvg();
+  if (s) save(new Blob([s.text], { type: 'image/svg+xml' }), `${fileBase()}.svg`);
+});
+$('dlpng').addEventListener('click', async () => {
+  const s = await standaloneSvg();
+  if (!s) return;
+  const scale = Math.min(2, 8000 / Math.max(s.w, s.h));
+  const img = new Image();
+  img.onload = () => {
+    const c = document.createElement('canvas');
+    c.width = Math.round(s.w * scale); c.height = Math.round(s.h * scale);
+    const g = c.getContext('2d'); g.scale(scale, scale); g.drawImage(img, 0, 0, s.w, s.h);
+    c.toBlob((b) => b && save(b, `${fileBase()}.png`), 'image/png');
+  };
+  img.onerror = () => { $('status').className = 'err'; $('status').textContent = 'Could not make a PNG here: download the SVG instead.'; };
+  img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(s.text);
+});
 
 // Zoom scales the drawing's size; the box around it scrolls to pan. Ctrl/Cmd + mouse wheel zooms too.
 let zoom = 1;
@@ -516,7 +598,7 @@ async function run() {
       ? await fetch(`/api/diagram?${qs}`, { method: 'POST', body: JSON.stringify({ code: $('code').value, vars: $('varvals').value }) })
       : m === 'zip'
       ? await fetch(`/api/diagram?${qs}`, { method: 'POST', body: JSON.stringify({ files: zipFiles, vars: $('varvals').value, ignored: zipIgnored, root: $('zipdir').options.length ? $('zipdir').value : undefined }) })
-      : await fetch(`/api/diagram?repo=${encodeURIComponent($('repo').value)}${$('repodir').options.length && repoDirFor === $('repo').value ? `&root=${encodeURIComponent($('repodir').value)}` : ''}&${qs}`, { headers: $('token').value ? { 'x-github-token': $('token').value } : {} });
+      : await fetch(`/api/diagram?repo=${encodeURIComponent($('repo').value)}${$('repodir').options.length && repoDirFor === $('repo').value ? `&root=${encodeURIComponent($('repodir').value)}` : pendingRoot ? `&root=${encodeURIComponent(pendingRoot)}` : ''}&${qs}`, { headers: $('token').value ? { 'x-github-token': $('token').value } : {} });
     const data = await res.json();
     if (mine !== runSeq) return;                      // you went Back while it was loading
     if (!res.ok) throw new Error(data.error);
@@ -546,15 +628,35 @@ async function run() {
     layer = ''; $('q').value = ''; $('scope').value = ''; viewStack.length = 0; syncBack(); $('panel').hidden = true; 
     buildControls();
     await draw();
-    if (m === 'repo') history.replaceState(null, '', '?repo=' + encodeURIComponent($('repo').value));
+    pendingRoot = '';
+    syncUrl();
   } catch (e) {
     $('status').className = 'err'; $('status').textContent = e.message;
     $('checks').hidden = true;
   } finally { $('go').disabled = false; }
 }
 $('f').addEventListener('submit', (e) => { e.preventDefault(); if (mode() === 'search') search(1); else run(); });
-const q = new URLSearchParams(location.search).get('repo');
-if (q) { document.querySelector('input[value=repo]').checked = true; syncMode(); $('repo').value = q; run(); }
+const params = new URLSearchParams(location.search);
+const q = params.get('repo');
+if (q) {
+  document.querySelector('input[value=repo]').checked = true; syncMode(); $('repo').value = q;
+  pendingRoot = params.get('root') ?? '';
+  if (params.get('style')) $('style').value = params.get('style');
+  if (params.get('dir')) $('dir').value = params.get('dir');
+  if (params.get('provider')) $('provider').value = params.get('provider');
+  $('inactive').checked = params.get('inactive') === '1';
+  $('simplify').checked = params.get('simplify') !== '0';
+  $('anim').checked = params.get('anim') !== '0';
+  if (params.get('vars')) $('varvals').value = params.get('vars');
+  run().then(() => {                              // then the view inside the diagram: layer, filter, module, detail
+    if (params.get('detail')) $('detail').value = params.get('detail');
+    if (params.get('scope') && [...$('scope').options].some((o) => o.value === params.get('scope'))) $('scope').value = params.get('scope');
+    $('collapse').checked = params.get('collapse') === '1';
+    $('q').value = params.get('q') ?? '';
+    layer = params.get('layer') ?? '';
+    if (lastData) draw();
+  });
+}
 </script>
 </body>
 </html>

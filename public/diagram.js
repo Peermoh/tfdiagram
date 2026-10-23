@@ -448,6 +448,8 @@ export function renderArchitecture(graph, { animate = true, direction = 'LR' } =
   const rect = (id) => { const b = g.node(id); const gr = grow(id);  return { x: b.x - b.width / 2 - gr, y: b.y - b.height / 2 - gr - 24, w: b.width + 2 * gr, h: b.height + 2 * gr + 24 }; };
   let minX = 0; let minY = 0; let maxX = g.graph().width; let maxY = g.graph().height;
   for (const id of boxes) { const r = rect(id); minX = Math.min(minX, r.x - 12); minY = Math.min(minY, r.y - 12); maxX = Math.max(maxX, r.x + r.w + 12); maxY = Math.max(maxY, r.y + r.h + 12); }
+  const note = hiddenCount ? `${hiddenCount} supporting resources (security groups, routes, IAM, listeners…) are folded away. Use the Cards view to see them.` : '';
+  maxX = Math.max(maxX, minX + 24 + note.length * 5.9);       // the caption must fit inside the picture too
   const w = Math.ceil(maxX - minX); const h = Math.ceil(maxY - minY) + 22;
   const svg = [];
   svg.push(`<svg xmlns="http://www.w3.org/2000/svg" class="arch${animate ? '' : ' still'}" viewBox="${minX} ${minY} ${w} ${h}" width="${w}" height="${h}" font-family="system-ui, sans-serif">`);
@@ -514,7 +516,7 @@ ${t.total > 1 ? `<g><rect x="${TW / 2 + 12}" y="0" width="30" height="18" rx="9"
 <text x="${TW / 2}" y="78" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--fg)">${esc(clip(label, 20))}</text>
 <text x="${TW / 2}" y="94" text-anchor="middle" font-size="11" fill="var(--muted)">${esc(clip(names, 22))}</text></g>`);
   }
-  if (hiddenCount) svg.push(`<text x="${minX + 12}" y="${maxY + 14}" font-size="11" fill="var(--muted)">${hiddenCount} supporting resources (security groups, routes, IAM, listeners…) are folded away. Use the Cards view to see them.</text>`);
+  if (note) svg.push(`<text x="${minX + 12}" y="${maxY + 14}" font-size="11" fill="var(--muted)">${note}</text>`);
   svg.push('</svg>');
   return svg.join('\n');
 }
