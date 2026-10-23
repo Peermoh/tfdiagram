@@ -9,11 +9,11 @@
 <meta name="theme-color" content="#0b1120">
 <script>try { const t = localStorage.getItem('tfTheme'); if (t) document.documentElement.dataset.theme = t; } catch {}</script>
 <style>
-  :root { --bg:#fff; --fg:#1a1a1a; --muted:#666; --line:#d8d8d8; --accent:#c2410c; --card:#fff; --edge:#64748b; }
-  @media (prefers-color-scheme: dark) { :root:not([data-theme=light]) { --bg:#111; --fg:#eee; --muted:#999; --line:#333; --accent:#fb923c; --card:#1b1b1b; --edge:#94a3b8; } }
+  :root { --bg:#fff; --fg:#1a1a1a; --muted:#666; --line:#d8d8d8; --accent:#c2410c; --card:#fff; --edge:#64748b; --link:#1d4ed8; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme=light]) { --bg:#111; --fg:#eee; --muted:#999; --line:#333; --accent:#fb923c; --card:#1b1b1b; --edge:#94a3b8; --link:#7db4ff; } }
   :root[data-theme=light] { color-scheme:light; }
   input[type=search] { padding:6px 10px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--fg); font:inherit; }
-  :root[data-theme=dark] { --bg:#111; --fg:#eee; --muted:#999; --line:#333; --accent:#fb923c; --card:#1b1b1b; --edge:#94a3b8; color-scheme:dark; }
+  :root[data-theme=dark] { --bg:#111; --fg:#eee; --muted:#999; --line:#333; --accent:#fb923c; --card:#1b1b1b; --edge:#94a3b8; --link:#7db4ff; color-scheme:dark; }
   .zoom button { padding:3px 11px; font-size:15px; background:transparent; color:var(--fg); border:1px solid var(--line); } .zoom button:first-child { border-radius:6px 0 0 6px; } .zoom button:last-child { border-radius:0 6px 6px 0; } .zoom button + button { margin-left:-1px; } #zreset { min-width:58px; font-size:13px; }
   #themebox { float:right; font-size:14px; color:var(--muted); }
   * { box-sizing: border-box; }
@@ -55,6 +55,7 @@
   #checks .info::before { content:'ℹ'; color:var(--accent); } #checks .ok::before { content:'✓'; color:#16a34a; }
   #checks .error { color:#dc2626; font-weight:600; } #checks summary { cursor:pointer; color:var(--muted); }
   #sq { width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--fg); font:inherit; }
+  a { color:var(--link); }
   #searchbox { flex:1 1 100%; } .hit { border:1px solid var(--line); border-radius:8px; padding:12px 14px; margin:10px 0; }
   #sclear { background:transparent; color:var(--fg); border:1px solid var(--line); padding:6px 12px; font-size:14px; }
   .hit h3 { margin:0 0 4px; font-size:16px; } .hit p { margin:4px 0 8px; color:var(--muted); } .hit .meta { font-size:13px; color:var(--muted); }
