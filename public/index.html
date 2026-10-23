@@ -108,6 +108,9 @@
     <label><input type="checkbox" id="simplify" checked> Hide plumbing (IAM attachments, SG rules, associations)</label>
     <label id="tokenLabel" hidden>GitHub token (private repos): <input type="password" id="token" autocomplete="off" size="20"></label>
   </div>
+  <details id="varsbox"><summary>Variable values (optional): set inputs like <code>environment = "prod"</code></summary>
+    <textarea id="varvals" rows="4" spellcheck="false" placeholder='instance_count = 3&#10;enable_nat = true&#10;vpc_cidr = "10.20.0.0/16"'></textarea>
+    <p class="tag">One <code>name = value</code> per line, the same syntax as a .tfvars file. They apply to the top-level module and override defaults and terraform.tfvars. Changing them redraws the diagram.</p></details>
   <button type="button" id="tosearch" hidden>← Back to search results</button>
   <div id="status"></div>
   <div id="result">
@@ -497,6 +500,7 @@ async function loadZip(file) {
 }
 $('zip').addEventListener('change', (e) => { const f = e.target.files[0]; if (f) loadZip(f); });
 $('zipdir').addEventListener('change', () => run());
+$('varvals').addEventListener('change', () => { if (lastData) run(); });
 for (const ev of ['dragenter', 'dragover']) $('zipdrop').addEventListener(ev, (e) => { e.preventDefault(); $('zipdrop').classList.add('over'); });
 for (const ev of ['dragleave', 'drop']) $('zipdrop').addEventListener(ev, () => $('zipdrop').classList.remove('over'));
 $('zipdrop').addEventListener('drop', (e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) loadZip(f); });
@@ -507,11 +511,11 @@ async function run() {
   if (m === 'zip' && !zipFiles) { $('status').className = 'err'; $('status').textContent = 'Choose a .zip first'; return; }
   $('go').disabled = true; $('status').className = ''; $('status').textContent = m === 'repo' ? 'Fetching Terraform files…' : 'Parsing…';
   try {
-    const qs = `simplify=${$('simplify').checked ? 1 : 0}&inactive=${$('inactive').checked ? 1 : 0}&provider=${$('provider').value}`;
+    const qs = `simplify=${$('simplify').checked ? 1 : 0}&inactive=${$('inactive').checked ? 1 : 0}&provider=${$('provider').value}${m === 'repo' && $('varvals').value.trim() ? `&vars=${encodeURIComponent($('varvals').value.slice(0, 4000))}` : ''}`;
     const res = m === 'paste'
-      ? await fetch(`/api/diagram?${qs}`, { method: 'POST', body: JSON.stringify({ code: $('code').value }) })
+      ? await fetch(`/api/diagram?${qs}`, { method: 'POST', body: JSON.stringify({ code: $('code').value, vars: $('varvals').value }) })
       : m === 'zip'
-      ? await fetch(`/api/diagram?${qs}`, { method: 'POST', body: JSON.stringify({ files: zipFiles, ignored: zipIgnored, root: $('zipdir').options.length ? $('zipdir').value : undefined }) })
+      ? await fetch(`/api/diagram?${qs}`, { method: 'POST', body: JSON.stringify({ files: zipFiles, vars: $('varvals').value, ignored: zipIgnored, root: $('zipdir').options.length ? $('zipdir').value : undefined }) })
       : await fetch(`/api/diagram?repo=${encodeURIComponent($('repo').value)}${$('repodir').options.length && repoDirFor === $('repo').value ? `&root=${encodeURIComponent($('repodir').value)}` : ''}&${qs}`, { headers: $('token').value ? { 'x-github-token': $('token').value } : {} });
     const data = await res.json();
     if (mine !== runSeq) return;                      // you went Back while it was loading

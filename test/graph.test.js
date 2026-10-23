@@ -1172,3 +1172,13 @@ test('registry modules: sources are classified, versions picked, and the module 
     assert.ok(data.checks.some((c) => /could not be opened \(acme\/missing\/aws\)/.test(c.text)));
   } finally { globalThis.fetch = real; }
 });
+
+test('variable values typed by the user override defaults', async () => {
+  const { handleApi } = await import('../lib/api.js');
+  const code = 'variable "n" { default = 1 }\nresource "aws_instance" "a" {\n  count = var.n\n}';
+  const post = (body) => handleApi(new Request('http://x/api/diagram', { method: 'POST', body: JSON.stringify(body) })).then((r) => r.json());
+  assert.equal((await post({ code })).graph.nodes[0].instances ?? 1, 1);
+  const d = await post({ code, vars: 'n = 4\n' });
+  assert.equal(d.graph.nodes[0].instances, 4);
+  assert.ok(d.checks.some((c) => /Applied your variable values/.test(c.text)));
+});
