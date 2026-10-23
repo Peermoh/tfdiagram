@@ -197,6 +197,7 @@
   .vhead [hidden] { display:none !important; }
   .vpane { min-width:0; } .vhead { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:8px; } .vhead .grow { flex:1; } .vhead code { word-break:break-all; }
   .viewer { border:1px solid var(--line); border-radius:12px; background:var(--card2); max-height:620px; overflow:auto; padding:10px 14px; min-height:120px; } .viewer pre.code { border:0; background:none; padding:0; max-height:none; } .viewer .prose { font-size:14.5px; }
+  .browser.linksonly { grid-template-columns:1fr; } .browser.linksonly .treebox { max-height:360px; }
   @media (max-width:760px) { .browser { grid-template-columns:1fr; } .bpane .treebox { max-height:240px; } }
   .kindtag { display:inline-block; padding:1px 9px; border-radius:999px; font-size:12px; font-weight:600; background:var(--accent-soft); color:var(--accent); }
   details.fold { margin-top:14px; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:4px 16px; box-shadow:var(--shadow); }
@@ -763,6 +764,8 @@ let xRepoUrl = '';          // GitHub URL, when files are fetched one at a time
 let xFileCache = new Map();
 let xOpen = '';
 let xViewRaw = false;
+let xLinksOnly = false;
+const ghBlob = (path) => `https://github.com/${xdata.owner}/${xdata.repo}/blob/${xdata.branch || 'HEAD'}/${path.split('/').map(encodeURIComponent).join('/')}`;
 const fileSize = (n) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)} MB` : n >= 1e3 ? `${Math.round(n / 1e3)} KB` : `${n} B`);
 function buildTreeHtml(list) {
   const root = { dirs: new Map(), files: [] };
@@ -779,6 +782,11 @@ function setupBrowser(d, files) {
   xRepoUrl = files ? '' : (d.owner ? `https://github.com/${d.owner}/${d.repo}${d.name.split('/').length > 2 ? `/tree/${d.branch || "HEAD"}/${d.name.split('/').slice(2).join('/')}` : ''}` : '');
   xFileCache = new Map(); xOpen = '';
   const list = d.tree ?? [];
+  // docs / link collections: describe it and list the files as links, no contents shown
+  xLinksOnly = Boolean(d.model?.contentRepo) && Boolean(d.owner);
+  document.querySelector('#xbrowse .browser').classList.toggle('linksonly', xLinksOnly);
+  document.querySelector('#xbrowse .vpane').hidden = xLinksOnly;
+  document.querySelector('#xbrowse .ic').textContent = xLinksOnly ? 'Files in this repository' : 'Browse the repository';
   $('xtreebox').innerHTML = list.length ? buildTreeHtml(list) : '<p class="tag">No files.</p>';
   $('xfq').value = '';
   $('xbrowsenote').textContent = `${list.length} text file${list.length === 1 ? '' : 's'}${d.truncated ? ' (large repository: part of it)' : ''}`;
@@ -786,7 +794,7 @@ function setupBrowser(d, files) {
   $('xgh').hidden = !gh; if (gh) $('xgh').href = gh;
   $('xviewer').innerHTML = '<p class="tag">Pick a file on the left.</p>'; $('xvpath').textContent = 'Choose a file'; $('xvmode').hidden = true; $('xvcopy').hidden = true;
   const readme = d.model?.readme?.path;
-  if (readme && list.some((f) => f.path === readme)) openFile(readme, false);
+  if (!xLinksOnly && readme && list.some((f) => f.path === readme)) openFile(readme, false);
 }
 async function repoFileText(path) {
   if (xFiles?.has(path)) return { content: xFiles.get(path), size: xFiles.get(path).length };
@@ -815,7 +823,7 @@ async function openFile(path, scroll = true) {
     if (scroll) $('xbrowse').scrollIntoView({ behavior: 'smooth', block: 'start' });
   } catch (e) { $('xviewer').innerHTML = `<p class="tag" style="color:var(--bad)">${HX(e.message)}</p>`; }
 }
-$('xtreebox').addEventListener('click', (e) => { const f = e.target.closest('[data-file]'); if (f) openFile(f.dataset.file, false); });
+$('xtreebox').addEventListener('click', (e) => { const f = e.target.closest('[data-file]'); if (!f) return; if (xLinksOnly) window.open(ghBlob(f.dataset.file), '_blank', 'noopener'); else openFile(f.dataset.file, false); });
 $('xvmode').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; xViewRaw = b.dataset.v === 'raw'; document.querySelectorAll('#xvmode button').forEach((x) => x.classList.toggle('on', x === b)); if (xOpen) openFile(xOpen, false); });
 $('xvcopy').addEventListener('click', async () => { try { const f = await repoFileText(xOpen); await navigator.clipboard.writeText(f.content); $('xvcopy').textContent = 'Copied ✓'; } catch { $('xvcopy').textContent = 'Could not copy'; } setTimeout(() => { $('xvcopy').textContent = 'Copy'; }, 1500); });
 $('xfq').addEventListener('input', () => {
@@ -826,7 +834,7 @@ $('xfq').addEventListener('input', () => {
   $('xtreebox').innerHTML = hits.length ? hits.map((f) => `<div class="f${f.path === xOpen ? ' on' : ''}" data-file="${HX(f.path)}" title="${HX(f.path)}">${HX(f.path)}<small>${fileSize(f.size)}</small></div>`).join('') : '<p class="tag">No file matches.</p>';
 });
 // file names in the tables open in the browser
-$('xresult').addEventListener('click', (e) => { const o = e.target.closest('[data-openfile]'); if (o) { e.preventDefault(); openFile(o.dataset.openfile, true); } });
+$('xresult').addEventListener('click', (e) => { const o = e.target.closest('[data-openfile]'); if (!o) return; e.preventDefault(); if (xLinksOnly) window.open(ghBlob(o.dataset.openfile), '_blank', 'noopener'); else openFile(o.dataset.openfile, true); });
 
 async function runExplain(forceRepo = false) {
   const m = forceRepo ? 'repo' : xmode();
