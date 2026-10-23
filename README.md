@@ -41,6 +41,10 @@ Made from the sample projects in `public/samples/` (AWS three-tier, multiple env
 
 ![Connect AI](docs/screenshots/08-connect-ai.png)
 
+**Explain any repository**: summary, parts and imports, optional AI.
+
+![Explain repo](docs/screenshots/10-explain-repo.png)
+
 **On a phone**
 
 <img src="docs/screenshots/09-mobile.png" alt="Mobile layout" width="300">
@@ -89,6 +93,20 @@ Optional: `PORT=8080 npm start`; `GITHUB_TOKEN=... npm start` for private repos 
 - **Export** the diagram as SVG or PNG, or **Copy link** to reopen the same view (GitHub URL mode).
 - A **Checks** list explains what was read, which folder was drawn, modules followed or missing, unknown variables,
   resources with `count = 0`, other providers, and so on (`lib/validate.js`).
+
+## Explain any repository (not only Terraform)
+The **Explain repo** tab (and `POST/GET /api/repo`) understands any code repository, like GitDiagram, in three layers:
+1. **Repo map, no AI, free** (`lib/repomap.js`): reads the README, manifests (package.json, pom.xml, go.mod, pyproject, Cargo, Gemfile, composer, csproj...),
+   Docker / docker-compose, GitHub Actions / Azure Pipelines / GitLab / Jenkins, Kubernetes, Terraform and OpenAPI files, groups the code into parts
+   (monorepo packages, or the folders under `src/`), follows imports between them (JS/TS, Python, Go, Java/Kotlin), recognises frameworks and external
+   services from dependencies, compose images and `.env.example`, and draws the parts as a diagram. Solid arrows are read from the code or config; dashed
+   arrows are inferred and say so. The written summary is assembled from those facts.
+2. **Explain with AI, optional, your own key**: the visitor pastes their Anthropic API key (kept in the browser, optionally remembered on that device); the
+   page sends the extracted overview straight from the browser to `api.anthropic.com` (never through this site) and streams back an explanation plus a
+   diagram that is drawn with the same renderer. Nothing is billed to the site owner.
+3. **Through MCP**: `analyze_repo` and `get_repo_file` give the visitor's own Claude the same overview (plus a Mermaid diagram) so it can write the explanation on their plan.
+Inputs: public GitHub URL (downloaded as one zip, up to 40 MB), uploaded zip, or (local only) Private Git. Limits: imports are regex-based and can miss dynamic
+imports; other languages fall back to folder structure; very large repositories are partly read (the page says so).
 
 ## stack.json patterns
 Some platform repos hold no Terraform resources, only a `stack.json` listing capabilities per tier (`{ "stack": { "cloud_routing": { "network": [ { "capability_name": "Cloud DNS", "include": ["GTS-1150-Amazon Route 53"] } ] }, "cloud_account": { "tier-2": {...}, "non-vpc": {...}, "tier-3": {...} }, "cloud_platform": {...} } }`). Upload such a zip (or paste the JSON) and it is drawn as tier boxes with each service's icon (AWS services are recognised by name, other tools like Splunk or Active Directory become plain tiles), plus a typical flow (Internet, DNS, load balancer, servers, storage / database) that is **inferred from the services**: the file does not say how they connect. Folders with a `stack.json` (dev, staging, prod) appear under Folder to draw. See `lib/stack.js` and `public/samples/stack-pattern.zip`.

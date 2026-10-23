@@ -1216,7 +1216,7 @@ test('MCP server: initialize, list tools, analyse pasted code, fetch a resource 
   assert.equal(init.json.result.protocolVersion, '2025-06-18');
   assert.equal((await call({ jsonrpc: '2.0', method: 'notifications/initialized' })).status, 202);
   const list = await call({ jsonrpc: '2.0', id: 2, method: 'tools/list' });
-  assert.deepEqual(list.json.result.tools.map((t) => t.name), ['analyze_terraform_repo', 'analyze_terraform_code', 'get_resource_code']);
+  assert.deepEqual(list.json.result.tools.map((t) => t.name), ['analyze_terraform_repo', 'analyze_terraform_code', 'analyze_repo', 'get_repo_file', 'get_resource_code']);
   const code = 'resource "aws_vpc" "v" { cidr_block = "10.0.0.0/16" }\nresource "aws_security_group" "web" {\n  vpc_id = aws_vpc.v.id\n  ingress {\n    from_port = 22\n    to_port = 22\n    protocol = "tcp"\n    cidr_blocks = ["0.0.0.0/0"]\n  }\n}\nresource "aws_instance" "app" {\n  vpc_security_group_ids = [aws_security_group.web.id]\n}';
   const a = await call({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'analyze_terraform_code', arguments: { code } } });
   const text = a.json.result.content[0].text;

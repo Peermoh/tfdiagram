@@ -19,6 +19,22 @@ export function wantedPath(name) {
   return path;
 }
 
+// ---- any repository (not only Terraform): which files are worth reading as text
+const SKIP_DIRS = /(^|\/)(\.git|\.terraform|node_modules|__MACOSX|\.next|\.nuxt|dist|build|target|out|vendor|venv|\.venv|__pycache__|\.gradle|\.idea|\.vscode|coverage|\.cache|bower_components|Pods|\.dart_tool)\//;
+const BINARY = /\.(png|jpe?g|gif|ico|bmp|webp|avif|svgz|pdf|zip|gz|tgz|bz2|7z|rar|jar|war|ear|class|exe|dll|so|dylib|a|o|obj|bin|dat|woff2?|ttf|otf|eot|mp[34]|mov|avi|wav|ogg|webm|psd|ai|sketch|sqlite3?|db|pyc|lock|map|min\.js|min\.css|snap)$/i;
+const BIG_NAMES = /(^|\/)(package-lock\.json|yarn\.lock|pnpm-lock\.yaml|composer\.lock|Gemfile\.lock|poetry\.lock|Cargo\.lock|go\.sum)$/i;
+const normalize = (name) => name.replace(/\\/g, '/').replace(/^(\.\/|\/)+/, '');
+
+// normalised path of a file worth reading as text, or null
+export function textPath(name) {
+  const path = normalize(name);
+  if (!path || path.endsWith('/') || SKIP_DIRS.test(`/${path}`) || path.split('/').some((p) => p === '..' || p.startsWith('._'))) return null;
+  if (BINARY.test(path) || BIG_NAMES.test(path)) return null;
+  return path;
+}
+// every entry of the archive that is not junk (for the file tree), with its size
+const listable = (name) => { const path = normalize(name); return path && !path.endsWith('/') && !SKIP_DIRS.test(`/${path}`) && !path.split('/').some((p) => p === '..' || p.startsWith('._')) ? path : null; };
+
 async function inflate(data, expected) {
   const reader = new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw')).getReader();
   const chunks = [];
@@ -37,7 +53,7 @@ async function inflate(data, expected) {
 }
 
 // Returns { files: [{ path, content }], skipped: [path], ignored: { tfjson, tfvars } } for the .tf files in a zip (an ArrayBuffer).
-export async function unzipTerraform(buffer, { maxFiles = 3000, maxFile = 500_000, maxTotal = 8_000_000 } = {}) {
+export async function unzipTerraform(buffer, { maxFiles = 3000, maxFile = 500_000, maxTotal = 8_000_000, accept = null } = {}) {
   const v = new DataView(buffer);
   const u8 = new Uint8Array(buffer);
   let eocd = -1;
@@ -53,6 +69,8 @@ export async function unzipTerraform(buffer, { maxFiles = 3000, maxFile = 500_00
   const files = [];
   const skipped = [];
   const ignored = { tfjson: 0, tfvars: 0 }; // present in the zip but not read
+  const entries = [];                          // the whole file tree (accept mode): { path, size }
+  let truncated = false;
   let total = 0;
   for (let i = 0; i < count; i++) {
     if (v.getUint32(p, true) !== CENTRAL) throw new Error('The zip file is damaged');
@@ -65,7 +83,8 @@ export async function unzipTerraform(buffer, { maxFiles = 3000, maxFile = 500_00
     const clen = v.getUint16(p + 32, true);
     const local = v.getUint32(p + 42, true);
     const name = text.decode(u8.subarray(p + 46, p + 46 + nlen));
-    const path = wantedPath(name);
+    const path = accept ? accept(name) : wantedPath(name);
+    if (accept && entries.length < 30000) { const lp = listable(name); if (lp) entries.push({ path: lp, size: usize }); }
     p += 46 + nlen + xlen + clen;
     if (!path) {
       const other = name.replace(/\\/g, '/');
@@ -73,6 +92,7 @@ export async function unzipTerraform(buffer, { maxFiles = 3000, maxFile = 500_00
       continue;
     }
     if (flags & 1) throw new Error('This zip is password protected');
+    if (accept && (files.length >= maxFiles || total >= maxTotal)) { truncated = true; continue; }          // a big repository: read what fits
     if (usize > maxFile) { skipped.push(path); continue; }
     if (v.getUint32(local, true) !== LOCAL) throw new Error('The zip file is damaged');
     const start = local + 30 + v.getUint16(local + 26, true) + v.getUint16(local + 28, true);
@@ -80,9 +100,11 @@ export async function unzipTerraform(buffer, { maxFiles = 3000, maxFile = 500_00
     const bytes = method === 0 ? raw : method === 8 ? await inflate(raw, usize) : null;
     if (!bytes) { skipped.push(path); continue; }
     total += bytes.length;
-    if (total > maxTotal) throw new Error('The Terraform files in this zip are too large (limit 8 MB of .tf text)');
-    files.push({ path, content: text.decode(bytes) });
-    if (files.length >= maxFiles) break;
+    if (!accept && total > maxTotal) throw new Error('The Terraform files in this zip are too large (limit 8 MB of .tf text)');
+    const content = text.decode(bytes);
+    if (accept && content.includes('\u0000')) { skipped.push(path); continue; }              // a binary after all
+    files.push({ path, content });
+    if (files.length >= maxFiles && !accept) break;
   }
-  return { files, skipped, ignored };
+  return { files, skipped, ignored, entries, truncated };
 }

@@ -641,3 +641,60 @@ export function renderStack(model, { animate = true } = {}) {
   svg.push('</svg>');
   return svg.join('\n');
 }
+
+// ---- Repo map: components, services and how they depend on each other (any code repository) ----
+const RM = {
+  W: 196, H: 68, pad: 14,
+  colors: { users: '#64748b', frontend: '#2563eb', backend: '#16a34a', library: '#8b5cf6', support: '#94a3b8', data: '#d97706', infra: '#0ea5e9' },
+  titles: { users: 'Users', frontend: 'Frontend', backend: 'Backend', library: 'Libraries and shared code', support: 'Support: tests, scripts, docs', data: 'Data and external services', infra: 'Delivery and infrastructure' },
+  icons: { users: 'user', frontend: 'window', backend: 'server', library: 'cube', data: 'database', tests: 'folder', docs: 'doc', tooling: 'filter', config: 'folder', infra: 'containers', mobile: 'monitor', other: 'cube', external: 'cloud' },
+  ext: { Database: 'database', Cache: 'bolt', 'Message queue': 'message', 'Cloud services': 'cloud', 'Auth provider': 'key', Payments: 'cert', 'AI API': 'hub', Monitoring: 'pulse', 'Email / SMS': 'message', Search: 'search', 'Object storage': 'bucket', Proxy: 'balancer' },
+};
+
+export function renderRepoMap(diagram, { animate = true } = {}) {
+  const dagre = globalThis.dagre;
+  const { W, H, pad, colors } = RM;
+  const g = new dagre.graphlib.Graph({ compound: true });
+  g.setGraph({ rankdir: 'LR', nodesep: 26, ranksep: 90, edgesep: 14, marginx: 24, marginy: 24 });
+  g.setDefaultEdgeLabel(() => ({}));
+  const groups = Object.keys(colors).filter((k) => diagram.nodes.some((n) => n.group === k));
+  for (const k of groups) g.setNode(`#${k}`, {});
+  for (const n of diagram.nodes) { g.setNode(n.id, { width: W + 2 * pad, height: H + 2 * pad + 6, cw: W, ch: H, ref: n }); g.setParent(n.id, `#${n.group}`); }
+  for (const e of diagram.edges) if (g.hasNode(e.from) && g.hasNode(e.to)) g.setEdge(e.from, e.to, { ref: e });
+  dagre.layout(g);
+  const lw = Math.ceil(g.graph().width); const lh = Math.ceil(g.graph().height);
+  const out = [];
+  out.push(`<svg xmlns="http://www.w3.org/2000/svg" class="arch repomap${animate ? '' : ' still'}" viewBox="0 0 ${lw} ${lh}" width="${lw}" height="${lh}" font-family="system-ui, sans-serif">`);
+  out.push('<style>.flow{stroke-dasharray:7 6;animation:tfflow 0.9s linear infinite}.still .flow{animation:none}@keyframes tfflow{to{stroke-dashoffset:-13}}@media (prefers-reduced-motion:reduce){.flow{animation:none}}</style>');
+  out.push('<defs><marker id="rarr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--edge)"/></marker></defs>');
+  for (const k of groups) {
+    const b = g.node(`#${k}`); const x = b.x - b.width / 2; const y = b.y - b.height / 2;
+    out.push(`<g><rect x="${x}" y="${y}" width="${b.width}" height="${b.height}" rx="12" fill="${colors[k]}12" stroke="${colors[k]}" stroke-width="1.4"/><text x="${x + 12}" y="${y + 17}" font-size="11.5" font-weight="700" letter-spacing=".04em" fill="${colors[k]}">${esc(RM.titles[k].toUpperCase())}</text></g>`);
+  }
+  for (const e of g.edges()) {
+    const pts = g.edge(e).points.map((p) => ({ ...p })); const a = g.node(e.v); const z = g.node(e.w); const ref = g.edge(e).ref;
+    pts[0] = { x: a.x + a.cw / 2, y: a.y }; pts[pts.length - 1] = { x: z.x - z.cw / 2 - 2, y: z.y };
+    if (a.x > z.x) { pts[0] = { x: a.x - a.cw / 2, y: a.y }; pts[pts.length - 1] = { x: z.x + z.cw / 2 + 2, y: z.y }; }
+    let d = `M${pts[0].x} ${pts[0].y}`;
+    for (let i = 1; i < pts.length; i++) { const p = pts[i - 1]; const q = pts[i]; const m = (p.x + q.x) / 2; d += ` L${m} ${p.y} L${m} ${q.y} L${q.x} ${q.y}`; }
+    const mid = pts[Math.floor(pts.length / 2)];
+    const tip = `${ref.label || 'depends on'}${ref.inferred ? ' (inferred, not read from the code)' : ''}`;
+    const pill = ref.label && ref.label !== 'imports' ? `<g transform="translate(${mid.x} ${mid.y})"><rect x="${-(ref.label.length * 3.1 + 7)}" y="-9" width="${ref.label.length * 6.2 + 14}" height="18" rx="9" fill="var(--card)" stroke="var(--edge)"/><text y="4" text-anchor="middle" font-size="10.5" fill="var(--muted)">${esc(clip(ref.label, 22))}</text></g>` : '';
+    out.push(`<g><title>${esc(tip)}</title><path d="${d}" fill="none" stroke="var(--edge)" stroke-width="1.6" stroke-linejoin="round"${ref.inferred ? ' stroke-dasharray="6 5"' : ''} marker-end="url(#rarr)"/>${pill}</g>`);
+  }
+  for (const id of g.nodes()) {
+    const b = g.node(id); const n = b.ref; if (!n) continue;
+    const color = colors[n.group] ?? '#64748b';
+    const x = b.x - b.cw / 2; const y = b.y - b.ch / 2;
+    const icon = n.kind === 'external' ? RM.ext[n.category] ?? RM.icons.external : RM.icons[n.kind] ?? RM.icons.library;
+    out.push(`<g transform="translate(${x} ${y})"><title>${esc(`${n.label}${n.sub ? ` · ${n.sub}` : ''}${n.path ? ` (${n.path})` : ''}${n.entry ? `. Entry: ${n.entry}` : ''}`)}</title>
+<rect width="${b.cw}" height="${b.ch}" rx="10" fill="var(--card)" stroke="${color}" stroke-width="1.6"/>
+<rect x="1" y="1" width="46" height="${b.ch - 2}" rx="9" fill="${color}"/><rect x="30" y="1" width="17" height="${b.ch - 2}" fill="${color}"/>
+<g transform="translate(11 ${b.ch / 2 - 13})" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${glyph(icon)}</g>
+<text x="58" y="${b.ch / 2 - 4}" font-size="13" font-weight="700" fill="var(--fg)">${esc(clip(n.label, 21))}</text>
+<text x="58" y="${b.ch / 2 + 13}" font-size="11.5" fill="var(--muted)">${esc(clip(n.sub ?? '', 27))}</text>
+${n.techs?.length ? `<text x="58" y="${b.ch - 6}" font-size="10" fill="${color}" font-weight="600">${esc(clip(n.techs.join(' · '), 28))}</text>` : ''}</g>`);
+  }
+  out.push('</svg>');
+  return out.join('\n');
+}

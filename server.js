@@ -5,6 +5,7 @@ import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { handleApi, handleSearch } from './lib/api.js';
 import { handleMcp } from './lib/mcp.js';
+import { handleRepo } from './lib/repoapi.js';
 import { hasGit, readRepoWithGit } from './lib/localgit.js';
 import { parseAdoUrl, fetchAdoZip } from './lib/ado.js';
 
@@ -35,6 +36,12 @@ http.createServer(async (req, res) => {
       res.writeHead(out.status, Object.fromEntries(out.headers));
       return res.end(await out.text());
     }
+    if (url.pathname === '/api/repo') {
+      const body = req.method === 'POST' ? await readBody(req, 15_000_000) : undefined;
+      const out = await handleRepo(new Request(url, { method: req.method, headers: req.headers, body }), process.env);
+      res.writeHead(out.status, Object.fromEntries(out.headers));
+      return res.end(await out.text());
+    }
     if (url.pathname === '/api/local') {                      // lets the page know it is running on this computer
       if (!isLocalRequest(req)) return sendJson(res, 404, { error: 'Not found' });
       return sendJson(res, 200, { local: true, git: await hasGit() });
@@ -42,15 +49,15 @@ http.createServer(async (req, res) => {
     if (url.pathname === '/api/local/fetch' && req.method === 'POST') {
       if (!isLocalRequest(req)) return sendJson(res, 404, { error: 'Not found' });
       try {
-        const { url: repoUrl, pat } = JSON.parse(await readBody(req));
+        const { url: repoUrl, pat, all } = JSON.parse(await readBody(req));
         const ado = parseAdoUrl(repoUrl);
         // a token: Azure DevOps REST API. Otherwise git with whatever this computer is already signed in with.
         if (ado && typeof pat === 'string' && pat.trim()) {
-          const { files, skipped } = await fetchAdoZip(ado, pat.trim());
-          return sendJson(res, 200, { files, skipped, root: ado.path, via: 'Azure DevOps API with your token', name: `${ado.org}/${ado.project}/${ado.repo}` });
+          const { files, skipped, entries } = await fetchAdoZip(ado, pat.trim(), fetch, all);
+          return sendJson(res, 200, { files, tree: entries, skipped, root: ado.path, via: 'Azure DevOps API with your token', name: `${ado.org}/${ado.project}/${ado.repo}` });
         }
-        const { files, skipped } = await readRepoWithGit(ado?.cloneUrl ?? repoUrl, { branch: ado?.branch });
-        return sendJson(res, 200, { files, skipped, root: ado?.path ?? '', via: "git, using this computer's own sign-in", name: ado ? `${ado.org}/${ado.project}/${ado.repo}` : String(repoUrl) });
+        const { files, skipped, tree } = await readRepoWithGit(ado?.cloneUrl ?? repoUrl, { branch: ado?.branch, all: Boolean(all) });
+        return sendJson(res, 200, { files, tree, skipped, root: ado?.path ?? '', via: "git, using this computer's own sign-in", name: ado ? `${ado.org}/${ado.project}/${ado.repo}` : String(repoUrl) });
       } catch (e) {
         return sendJson(res, 400, { error: e.message });
       }

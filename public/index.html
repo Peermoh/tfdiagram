@@ -100,14 +100,16 @@
   textarea { flex:1 1 100%; width:100%; font:13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; min-height:190px; resize:vertical; }
   select { padding:7px 10px; cursor:pointer; }
   button { font:inherit; }
-  #go { display:inline-flex; align-items:center; gap:8px; padding:11px 22px; border:0; border-radius:12px; color:#fff; font-weight:700; cursor:pointer; background:linear-gradient(135deg, var(--accent), var(--accent2)); box-shadow:0 8px 20px rgba(109,74,255,.32); transition:transform .15s, box-shadow .15s, filter .15s; }
-  #go:hover { transform:translateY(-1px); filter:brightness(1.05); box-shadow:0 12px 26px rgba(109,74,255,.4); } #go:active { transform:none; }
-  #go::before { content:''; width:1em; height:1em; background:currentColor; -webkit-mask:var(--i-play) center/contain no-repeat; mask:var(--i-play) center/contain no-repeat; }
-  #go:disabled { opacity:.8; cursor:wait; } #go:disabled::before { -webkit-mask:none; mask:none; border:2px solid rgba(255,255,255,.4); border-top-color:#fff; border-radius:50%; background:none; animation:spin .7s linear infinite; }
+  #go, #xgo { display:inline-flex; align-items:center; gap:8px; padding:11px 22px; border:0; border-radius:12px; color:#fff; font-weight:700; cursor:pointer; background:linear-gradient(135deg, var(--accent), var(--accent2)); box-shadow:0 8px 20px rgba(109,74,255,.32); transition:transform .15s, box-shadow .15s, filter .15s; }
+  #go:hover, #xgo:hover { transform:translateY(-1px); filter:brightness(1.05); box-shadow:0 12px 26px rgba(109,74,255,.4); } #go:active { transform:none; }
+  #go::before, #xgo::before { content:''; width:1em; height:1em; background:currentColor; -webkit-mask:var(--i-play) center/contain no-repeat; mask:var(--i-play) center/contain no-repeat; }
+  #go:disabled, #xgo:disabled { opacity:.8; cursor:wait; } #go:disabled::before, #xgo:disabled::before { -webkit-mask:none; mask:none; border:2px solid rgba(255,255,255,.4); border-top-color:#fff; border-radius:50%; background:none; animation:spin .7s linear infinite; }
   @keyframes spin { to { transform:rotate(360deg); } }
   .ghost { display:inline-flex; align-items:center; gap:6px; background:transparent; color:var(--fg); border:1px solid var(--line); border-radius:10px; padding:7px 13px; font-weight:600; font-size:13.5px; cursor:pointer; transition:background .15s, border-color .15s; }
   .ghost:hover { background:var(--accent-soft); border-color:var(--accent); }
   #go[hidden], #f[hidden] { display:none; }
+  #xzipbox, #xlocalbox { flex:1 1 100%; } #xlrepo { width:100%; } #xf { display:flex; gap:10px; flex-wrap:wrap; align-items:flex-start; } #xf input[type=text] { flex:1 1 280px; }
+  .zipdrop { display:block; border:2px dashed var(--line); border-radius:16px; padding:26px 18px; text-align:center; color:var(--muted); cursor:pointer; background:var(--card2); transition:border-color .2s, background .2s; } .zipdrop:hover, .zipdrop.over { border-color:var(--accent); background:var(--accent-soft); color:var(--fg); } .zipdrop input { display:block; margin:0 auto 8px; max-width:100%; }
 
   /* options */
   .optbar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:14px; padding-top:14px; border-top:1px dashed var(--line); color:var(--muted); font-size:13.5px; }
@@ -169,12 +171,20 @@
   .legend span.k { display:inline-block; max-width:100%; }
   .legend i { width:12px; height:12px; border-radius:4px; display:inline-block; margin-right:6px; vertical-align:-1px; }
   .legend b { color:var(--fg); font-weight:600; }
-  #out { overflow-anchor:none; border:1px solid var(--line); border-radius:18px; padding:16px; overflow:auto; min-height:90px; background:radial-gradient(var(--grid) 1px, transparent 1px) 0 0/22px 22px, var(--card); box-shadow:var(--shadow); }
-  #out svg { animation:rise .4s both; }
+  #xout, #out { overflow-anchor:none; border:1px solid var(--line); border-radius:18px; padding:16px; overflow:auto; min-height:90px; background:radial-gradient(var(--grid) 1px, transparent 1px) 0 0/22px 22px, var(--card); box-shadow:var(--shadow); }
+  #out svg, #xout svg { animation:rise .4s both; }
   html.scrolling .flow { animation-play-state:paused !important; }   /* no animation work while the page is being scrolled */
   #out { -webkit-overflow-scrolling:touch; overscroll-behavior-x:contain; }
   #backbar { position:sticky; top:62px; z-index:8; display:flex; align-items:center; gap:12px; padding:8px 0; background:var(--bg); }
   #backbar[hidden] { display:none; } #backlabel { color:var(--muted); font-size:14px; }
+  #xresult .card { margin-top:14px; } .xhead { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px; } .xhead .grow { flex:1; }
+  #xout { border:1px solid var(--line); border-radius:14px; padding:12px; overflow:auto; min-height:90px; background:radial-gradient(var(--grid) 1px, transparent 1px) 0 0/22px 22px, var(--card2); }
+  .prose h3, .prose h4 { margin:16px 0 6px; font-size:16px; } .prose p { margin:8px 0; } .prose ul, .prose ol { margin:6px 0 10px; padding-left:22px; } .prose li { margin:3px 0; }
+  .langbar { display:flex; height:10px; border-radius:6px; overflow:hidden; margin:12px 0 8px; background:var(--line); } .langbar i { display:block; height:100%; }
+  .langkey { display:flex; flex-wrap:wrap; gap:4px 14px; font-size:12.5px; color:var(--muted); } .langkey i { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:5px; }
+  .xstats { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; } .xstats .chip b { color:var(--fg); }
+  table.xt { border-collapse:collapse; width:100%; font-size:13.5px; margin:8px 0 14px; } table.xt th, table.xt td { text-align:left; padding:6px 10px 6px 0; border-bottom:1px solid var(--line); vertical-align:top; } table.xt th { color:var(--muted); font-size:11.5px; text-transform:uppercase; letter-spacing:.05em; }
+  .kindtag { display:inline-block; padding:1px 9px; border-radius:999px; font-size:12px; font-weight:600; background:var(--accent-soft); color:var(--accent); }
   details.fold { margin-top:14px; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:4px 16px; box-shadow:var(--shadow); }
   details.fold > summary { cursor:pointer; padding:10px 0; font-weight:700; list-style:none; display:flex; align-items:center; } details.fold > summary::-webkit-details-marker { display:none; }
   details.fold > summary::after { content:''; margin-left:auto; width:9px; height:9px; border-right:2px solid var(--muted); border-bottom:2px solid var(--muted); transform:rotate(45deg); transition:transform .2s; } details.fold[open] > summary::after { transform:rotate(-135deg); }
@@ -214,6 +224,7 @@
   <nav class="nav" id="pagenav" aria-label="Pages">
     <span class="ind"></span>
     <button type="button" data-page="diagram" class="on ic" style="--i:var(--i-flow)">Diagram</button>
+    <button type="button" data-page="explain" class="ic" style="--i:var(--i-code)">Explain repo</button>
     <button type="button" data-page="ai" class="ic" style="--i:var(--i-sparkle)">Connect AI</button>
   </nav>
   <button type="button" id="themebtn" class="ic only" title="Theme: default" aria-label="Change theme"></button>
@@ -316,6 +327,72 @@
   <div id="panel" hidden></div>
 </section>
 
+<section id="page-explain" class="page" hidden>
+  <div class="hero">
+    <h1>Understand <em>any repository</em></h1>
+    <p>Not only Terraform. Point at a GitHub repo, a zip, or a private repo on your computer: you get a plain-language summary, the parts it is made of, how they depend on each other, and a diagram. It works without AI; add your own key if you want a written explanation.</p>
+    <div class="chips"><span class="chip ic" style="--i:var(--i-code)">Any language</span><span class="chip ic" style="--i:var(--i-layers)">Parts and imports</span><span class="chip ic" style="--i:var(--i-plug)">Docker, CI, Kubernetes</span><span class="chip ic" style="--i:var(--i-sparkle)">Optional AI with your key</span></div>
+  </div>
+  <div class="card">
+    <div class="modes" id="xmodes">
+      <span class="ind"></span>
+      <label class="ic" style="--i:var(--i-github)"><input type="radio" name="xmode" value="repo" checked>GitHub URL</label>
+      <label class="ic" style="--i:var(--i-zip)"><input type="radio" name="xmode" value="zip">Upload zip</label>
+      <label class="ic" id="xlocalTab" hidden style="--i:var(--i-lock)"><input type="radio" name="xmode" value="local">Private Git (this computer)</label>
+    </div>
+    <form id="xf">
+      <input type="text" id="xrepo" placeholder="https://github.com/owner/repo  (or .../tree/main/some-folder)" required>
+      <div id="xzipbox" hidden>
+        <label id="xzipdrop" class="zipdrop"><input type="file" id="xzip" accept=".zip,application/zip,application/x-zip-compressed">
+          <b>Choose a .zip</b> or drop it here: any project, or a repo downloaded from GitHub / Azure DevOps. It is opened in your browser; only the text files are sent to be analysed, nothing is stored.</label>
+        <p class="tag" id="xzipnote"></p>
+      </div>
+      <div id="xlocalbox" hidden>
+        <input type="text" id="xlrepo" placeholder="https://dev.azure.com/org/project/_git/repo  (or any https / ssh Git URL)">
+        <p class="tag">Runs on this computer only, using the git installed here and whatever you are signed in with. Optional Azure DevOps token below.</p>
+        <label class="f" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;color:var(--muted);font-size:13.5px">Azure DevOps token (optional) <input type="password" id="xlpat" autocomplete="off" size="26"></label>
+      </div>
+      <button id="xgo" class="gobtn">Explain</button>
+    </form>
+    <div class="optbar" id="xtokenbar"><label class="f ic" style="--i:var(--i-key)">GitHub token (optional) <input type="password" id="xtoken" autocomplete="off" size="24"></label><span class="tag">Public repos need none. A token opens private repos and raises limits; it is used for this request only.</span></div>
+  </div>
+  <div id="xstatus"></div>
+  <div id="xresult" hidden>
+    <div class="card" id="xsummary"></div>
+    <div class="card" id="xexplaincard">
+      <div class="xhead"><b class="ic" style="--i:var(--i-list)">Explanation</b><span id="xbadge" class="tag"></span></div>
+      <div id="xexplain" class="prose"></div>
+    </div>
+    <div class="card" id="xdiagramcard">
+      <div class="xhead">
+        <b class="ic" style="--i:var(--i-flow)">Diagram</b>
+        <div class="seg" id="xsrcseg" hidden><button type="button" data-v="map" class="on">Detected structure</button><button type="button" data-v="ai">AI diagram</button></div>
+        <span class="grow"></span>
+        <label class="sw"><input type="checkbox" id="xanim" checked> Animate</label>
+        <span class="zoom"><button type="button" id="xzout" class="ic only" style="--i:var(--i-minus)" title="Zoom out"></button><button type="button" id="xzreset" title="Back to 100%">100%</button><button type="button" id="xzin" class="ic only" style="--i:var(--i-plus)" title="Zoom in"></button></span>
+        <span class="zoom"><button type="button" id="xdlsvg" class="ic" style="--i:var(--i-download)">SVG</button><button type="button" id="xdlpng" class="ic" style="--i:var(--i-download)">PNG</button></span>
+      </div>
+      <div id="xlegend" class="legend"></div>
+      <div id="xout" class="svghost"></div>
+    </div>
+    <div class="card" id="xai">
+      <b class="ic" style="--i:var(--i-sparkle)">Explain with AI</b>
+      <p class="tag" style="margin:6px 0 10px">Writes a clear explanation and a better diagram from the overview above. It uses <b>your own</b> Anthropic API key: the key stays in this browser and the request goes straight from your browser to Anthropic, never through this site. The overview (README, structure and key files of this repository) is sent to Anthropic, so only use it for code you may share. No key? The <a href="#" id="toAiPage">Connect AI</a> tab lets your own Claude do the same on your plan.</p>
+      <div class="optbar" style="margin-top:0;padding-top:0;border:0">
+        <label class="f">API key <input type="password" id="xkey" autocomplete="off" size="30" placeholder="sk-ant-…"></label>
+        <label class="f">Model <select id="xmodel"><option value="claude-sonnet-5-5">Sonnet 5.5 (balanced)</option><option value="claude-haiku-5-5">Haiku 5.5 (fastest, cheapest)</option><option value="claude-opus-5-5">Opus 5.5 (deeper)</option><option value="claude-fable-5-1">Fable 5.1 (most capable)</option></select></label>
+        <label class="sw"><input type="checkbox" id="xremember"> Remember the key on this device</label>
+        <button type="button" id="xaigo" class="ghost ic" style="--i:var(--i-sparkle)">Explain with AI</button>
+      </div>
+      <div id="xaistatus" class="tag" style="margin-top:8px"></div>
+    </div>
+    <details class="fold" id="xparts"><summary class="ic" style="--i:var(--i-layers)">Parts of the code and how they depend on each other</summary><div id="xpartsbody"></div></details>
+    <details class="fold" id="xstack"><summary class="ic" style="--i:var(--i-grid)">Technologies, entry points and infrastructure</summary><div id="xstackbody"></div></details>
+    <details class="fold"><summary class="ic" style="--i:var(--i-list)">Folder structure</summary><pre id="xtree" class="code"></pre></details>
+    <details class="fold"><summary class="ic" style="--i:var(--i-code)">Mermaid source of the detected structure</summary><pre id="xmermaid" class="code"></pre></details>
+  </div>
+</section>
+
 <section id="page-ai" class="page" hidden>
   <div class="hero">
     <h1>Use TFDiagram from <em>your AI</em></h1>
@@ -335,8 +412,10 @@
       <div><b><code>analyze_terraform_repo</code></b><span>Resources by layer, connections, security group rules, findings and a diagram link for a public GitHub repo.</span></div>
       <div><b><code>analyze_terraform_code</code></b><span>The same for Terraform you paste as text.</span></div>
       <div><b><code>get_resource_code</code></b><span>The exact Terraform block of one resource, with file and line.</span></div>
+      <div><b><code>analyze_repo</code></b><span>Any code repository (not only Terraform): structure, languages, frameworks, components and imports, Docker / CI files, entry points, key file excerpts and a Mermaid diagram. Your AI writes the explanation.</span></div>
+      <div><b><code>get_repo_file</code></b><span>One text file of a public GitHub repository, for follow-up questions.</span></div>
     </div>
-    <p class="tag" style="margin-bottom:0">Public GitHub repos and pasted code only. The Terraform you send is processed here and not stored.</p>
+    <p class="tag" style="margin-bottom:0">Public GitHub repos and pasted code only. What you send is processed here and not stored.</p>
   </div>
 </section>
 <div class="foot"><p id="iconNote" class="legend" hidden>AWS and Azure service icons are the property of Amazon Web Services and Microsoft and are shown unmodified, as supplied by them, to label diagrams. This tool is not affiliated with or endorsed by either company.</p></div>
@@ -346,7 +425,9 @@
 
 import { unzipTerraform } from './unzip.js';
 import { COLORS, filterGraph, friendlyType, summarize, toMermaid } from './render.js';
-import { hasOfficialIcons, renderArchitecture, renderDiagram, renderStack, setOfficialIcons } from './diagram.js';
+import { hasOfficialIcons, renderArchitecture, renderDiagram, renderRepoMap, renderStack, setOfficialIcons } from './diagram.js';
+import { buildAiPrompt, mdToHtml, parseAiReply } from './explain.js';
+import { textPath } from './unzip.js';
 const $ = (id) => document.getElementById(id);
 let lastData = null;
 // Scrolling on a phone stutters when a large diagram keeps animating, so the arrows pause while the page moves.
@@ -397,6 +478,7 @@ function showPage(name) {
   btns.forEach((b) => b.classList.toggle('on', b.dataset.page === name));
   slide($('pagenav'), btns.find((b) => b.dataset.page === name));
   if (name === 'diagram') paintModes();
+  if (name === 'explain') paintXModes();
 }
 document.querySelectorAll('#pagenav button').forEach((b) => b.addEventListener('click', () => { showPage(b.dataset.page); scrollTo({ top: 0, behavior: 'smooth' }); }));
 document.querySelectorAll('#modes input').forEach((i) => i.addEventListener('change', () => { paintModes(); if ($('status').className === 'err') { $('status').className = ''; $('status').textContent = ''; } }));
@@ -527,6 +609,197 @@ $('mcpurl').textContent = `${location.origin}/mcp`;
 $('mcpcmd').textContent = `claude mcp add --transport http tfdiagram ${location.origin}/mcp`;
 $('mcpcopy').addEventListener('click', async () => { try { await navigator.clipboard.writeText(`${location.origin}/mcp`); $('mcpcopy').textContent = 'Copied ✓'; } catch { prompt('Copy this URL:', `${location.origin}/mcp`); } setTimeout(() => { $('mcpcopy').textContent = 'Copy'; }, 1800); });
 
+
+// ================= Explain a repository (any code, not only Terraform) =================
+const xmode = () => document.querySelector('input[name=xmode]:checked').value;
+function paintXModes() {
+  const labels = [...document.querySelectorAll('#xmodes label:not([hidden])')];
+  labels.forEach((l) => l.classList.toggle('on', l.querySelector('input').checked));
+  slide($('xmodes'), labels.find((l) => l.classList.contains('on')));
+}
+function syncXMode() {
+  const m = xmode();
+  $('xrepo').hidden = m !== 'repo'; $('xrepo').required = m === 'repo'; $('xzipbox').hidden = m !== 'zip'; $('xlocalbox').hidden = m !== 'local';
+  $('xtokenbar').hidden = m !== 'repo';
+  paintXModes();
+}
+document.querySelectorAll('input[name=xmode]').forEach((r) => r.addEventListener('change', syncXMode));
+$('toAiPage').addEventListener('click', (e) => { e.preventDefault(); showPage('ai'); scrollTo({ top: 0, behavior: 'smooth' }); });
+
+let xdata = null;           // the last analysis: { name, model, mermaid, context, ... }
+let xzipData = null;        // { files, tree, name, truncated } from an uploaded zip
+let xAiDiagram = null;
+let xShown = 'map';
+let xzoom = 1;
+let xFit = true;            // a fresh diagram is scaled to fit the page; the zoom buttons take over after that
+const xstatus = (text, err = false) => { $('xstatus').className = err ? 'err' : ''; $('xstatus').textContent = text; };
+const LANG_COLORS = { JavaScript: '#f1e05a', TypeScript: '#3178c6', Python: '#3572a5', Java: '#b07219', Kotlin: '#a97bff', Go: '#00add8', Rust: '#dea584', Ruby: '#cc342d', PHP: '#4f5d95', 'C#': '#178600', Swift: '#f05138', Vue: '#41b883', Svelte: '#ff3e00', Shell: '#89e051', HTML: '#e34c26', CSS: '#563d7c', Terraform: '#7b42bc', 'C++': '#f34b7d', C: '#555555', Dart: '#00b4ab', Scala: '#c22d40', SQL: '#e38c00' };
+
+function xApplyZoom() {
+  const el = $('xout').querySelector('svg');
+  $('xzreset').textContent = `${Math.round(xzoom * 100)}%`;
+  if (!el) return;
+  const [w, h] = (el.getAttribute('viewBox') ?? '').split(/[ ,]+/).slice(2).map(Number);
+  if (w && h) { el.style.width = `${Math.round(w * xzoom)}px`; el.style.height = `${Math.round(h * xzoom)}px`; el.setAttribute('width', Math.round(w * xzoom)); el.setAttribute('height', Math.round(h * xzoom)); }
+}
+const xSetZoom = (z) => { xFit = false; xzoom = Math.min(4, Math.max(0.2, Math.round(z * 100) / 100)); xApplyZoom(); };
+$('xzin').addEventListener('click', () => xSetZoom(xzoom * 1.25));
+$('xzout').addEventListener('click', () => xSetZoom(xzoom / 1.25));
+$('xzreset').addEventListener('click', () => xSetZoom(1));
+$('xout').addEventListener('wheel', (e) => { if (!(e.ctrlKey || e.metaKey)) return; e.preventDefault(); xSetZoom(xzoom * (e.deltaY < 0 ? 1.1 : 1 / 1.1)); }, { passive: false });
+const xBase = () => `${(xdata?.name ?? 'repo').replace(/[^\w.-]+/g, '-')}-structure`;
+$('xdlsvg').addEventListener('click', () => downloadSvg($('xout'), xBase()));
+$('xdlpng').addEventListener('click', () => downloadPng($('xout'), xBase(), $('xstatus')));
+$('xanim').addEventListener('change', () => drawXDiagram());
+
+function drawXDiagram() {
+  if (!xdata) return;
+  const d = xShown === 'ai' && xAiDiagram ? xAiDiagram : xdata.model.diagram;
+  $('xout').innerHTML = renderRepoMap(d, { animate: $('xanim').checked });
+  $('xlegend').innerHTML = xShown === 'ai' && xAiDiagram
+    ? '<span class="k"><b>AI diagram</b> drawn from the model\'s answer; <b>dashed arrows</b> are connections it says it is guessing</span>'
+    : '<span class="k"><b>solid arrow</b> read from the code or config (imports, compose depends_on, dependencies)</span><span class="k"><b>dashed arrow</b> inferred from the kind of parts found, not read from the code</span><span class="k"><b>boxes</b> are groups of parts; arrows point from the one that uses to the one used</span>';
+  if (xFit) { const [w] = ($('xout').querySelector('svg')?.getAttribute('viewBox') ?? '').split(/[ ,]+/).slice(2).map(Number); if (w) xzoom = Math.max(0.35, Math.min(1, Math.floor(((($('xout').clientWidth || 1000) - 28) / w) * 20) / 20)); }
+  xApplyZoom();
+}
+document.querySelectorAll('#xsrcseg button').forEach((b) => b.addEventListener('click', () => {
+  xShown = b.dataset.v;
+  document.querySelectorAll('#xsrcseg button').forEach((x) => x.classList.toggle('on', x === b));
+  drawXDiagram();
+}));
+
+const HX = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+function showExplain(d) {
+  xdata = d; xAiDiagram = null; xShown = 'map'; xFit = true;
+  const m = d.model;
+  $('xsrcseg').hidden = true;
+  document.querySelectorAll('#xsrcseg button').forEach((x) => x.classList.toggle('on', x.dataset.v === 'map'));
+  const langs = m.languages;
+  $('xsummary').innerHTML = `<h2 style="margin:0 0 4px;font-size:20px">${HX(m.name || d.name || 'Repository')}</h2>
+    <p style="margin:0;color:var(--muted)">${HX(m.description || '')}</p>
+    ${langs.length ? `<div class="langbar">${langs.map((l) => `<i style="width:${l.percent}%;background:${LANG_COLORS[l.name] ?? '#8b95a7'}" title="${HX(l.name)} ${l.percent}%"></i>`).join('')}</div><div class="langkey">${langs.map((l) => `<span><i style="background:${LANG_COLORS[l.name] ?? '#8b95a7'}"></i>${HX(l.name)} ${Math.round(l.percent)}%</span>`).join('')}</div>` : ''}
+    <div class="xstats"><span class="chip"><b>${m.fileCount}</b>&nbsp;files</span><span class="chip"><b>${m.codeFiles}</b>&nbsp;source files</span><span class="chip"><b>${m.components.length}</b>&nbsp;parts</span><span class="chip"><b>${m.techs.length}</b>&nbsp;technologies</span>${d.truncated ? '<span class="chip">large repo: only part of the text was read</span>' : ''}</div>`;
+  const run = m.readme.run[0];
+  $('xexplain').innerHTML = m.explanation.map((p) => `<p>${HX(p)}</p>`).join('') + (run ? `<h4>How to run it (from the README, “${HX(run.section)}”)</h4><pre class="code">${HX(run.lines.join('\n'))}</pre>` : '');
+  $('xbadge').textContent = 'assembled from the repository\'s files, no AI';
+  // parts + imports
+  const rows = m.components.map((c) => `<tr><td><b>${HX(c.name)}</b><br><span class="tag">${HX(c.path || '/')}</span></td><td><span class="kindtag">${HX(c.kind)}</span></td><td>${HX(c.language || '')}</td><td>${c.files}</td><td>${c.entry ? `<code>${HX(c.entry)}</code>` : ''}</td><td>${HX(c.techs.join(', '))}</td></tr>`).join('');
+  $('xpartsbody').innerHTML = `<table class="xt"><tr><th>Part</th><th>Kind</th><th>Language</th><th>Files</th><th>Entry</th><th>Uses</th></tr>${rows}</table>`
+    + (m.imports.length ? `<b>Imports between parts</b><table class="xt"><tr><th>From</th><th>To</th><th>Imports</th></tr>${m.imports.map((e) => `<tr><td>${HX(e.from)}</td><td>${HX(e.to)}</td><td>${e.count}</td></tr>`).join('')}</table>` : '<p class="tag">No imports between the parts were found (or this language is not followed yet).</p>');
+  const inf = m.infrastructure; const li = (t) => `<li>${t}</li>`;
+  const infra = [];
+  for (const x of inf.dockerfiles) infra.push(li(`<code>${HX(x.path)}</code>: from ${HX(x.from)}${x.expose.length ? `, port ${HX(x.expose.join(', '))}` : ''}${x.cmd ? `, runs <code>${HX(x.cmd)}</code>` : ''}`));
+  for (const s2 of inf.compose) infra.push(li(`compose service <b>${HX(s2.name)}</b>: ${HX(s2.image || `built from ${s2.build}`)}${s2.dependsOn.length ? `, depends on ${HX(s2.dependsOn.join(', '))}` : ''}`));
+  for (const c of inf.ci) infra.push(li(`${HX(c.system)}: ${HX((c.detail ?? []).join(', ') || 'pipeline')}${c.deploy ? ' (deploys)' : ''}`));
+  if (Object.keys(inf.kubernetes.kinds).length) infra.push(li(`Kubernetes: ${HX(Object.entries(inf.kubernetes.kinds).map(([k, n]) => `${n} ${k}`).join(', '))}`));
+  if (inf.terraform.files) infra.push(li(`Terraform: ${inf.terraform.files} files, ${inf.terraform.resources} resources (draw them in the <a href="#" data-goto="diagram">Diagram</a> tab)`));
+  $('xstackbody').innerHTML = `${m.techs.length ? `<p>${m.techs.map((t) => `<span class="chip" title="${HX(t.evidence[0] ?? '')}">${HX(t.label)} <span class="tag">${HX(t.cat)}</span></span>`).join(' ')}</p>` : '<p class="tag">No known frameworks or services were recognised from the dependencies.</p>'}
+    ${m.entries.length ? `<b>Entry points</b><ul>${m.entries.map((e) => li(`<code>${HX(e.file)}</code> (${HX(e.component)}): ${HX(e.why)}`)).join('')}</ul>` : ''}
+    ${infra.length ? `<b>Delivery and infrastructure</b><ul>${infra.join('')}</ul>` : ''}
+    ${m.openapi.length ? `<b>API descriptions</b><ul>${m.openapi.map((o) => li(`<code>${HX(o.path)}</code>${o.title ? ` “${HX(o.title)}”` : ''}: ${o.endpoints} endpoints`)).join('')}</ul>` : ''}
+    ${m.env.length ? `<b>Environment variables</b><p class="tag">${HX(m.env.join(', '))}</p>` : ''}`;
+  document.querySelectorAll('#xstackbody [data-goto]').forEach((a) => a.addEventListener('click', (e) => { e.preventDefault(); showPage(a.dataset.goto); scrollTo({ top: 0, behavior: 'smooth' }); }));
+  $('xtree').textContent = m.treeText || '';
+  $('xmermaid').textContent = d.mermaid;
+  $('xaistatus').textContent = ''; $('xaigo').disabled = false;
+  $('xresult').hidden = false;
+  drawXDiagram();
+}
+
+async function runExplain() {
+  const m = xmode();
+  $('xgo').disabled = true; xstatus(m === 'repo' ? 'Downloading the repository and reading it…' : m === 'local' ? 'Reading the repository with git on this computer… (a sign-in window may open)' : 'Reading…');
+  try {
+    let res;
+    if (m === 'repo') res = await fetch(`/api/repo?repo=${encodeURIComponent($('xrepo').value.trim())}`, { headers: $('xtoken').value ? { 'x-github-token': $('xtoken').value } : {} });
+    else if (m === 'zip') {
+      if (!xzipData) throw new Error('Choose a .zip first');
+      res = await fetch('/api/repo', { method: 'POST', body: JSON.stringify(xzipData) });
+    } else {
+      const lr = await fetch('/api/local/fetch', { method: 'POST', body: JSON.stringify({ url: $('xlrepo').value.trim(), pat: $('xlpat').value, all: true }) });
+      const ld = await lr.json();
+      if (!lr.ok) throw new Error(ld.error);
+      res = await fetch('/api/repo', { method: 'POST', body: JSON.stringify({ name: ld.name, files: ld.files, tree: ld.tree }) });
+    }
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    showExplain(data);
+    xstatus(`${data.name}: ${data.model.components.length} parts, ${data.model.techs.length} technologies, ${data.fileCount} files`);
+  } catch (e) { xstatus(e.message, true); $('xresult').hidden = true; } finally { $('xgo').disabled = false; }
+}
+$('xf').addEventListener('submit', (e) => { e.preventDefault(); runExplain(); });
+
+async function loadXZip(file) {
+  xstatus(`Reading ${file.name}…`); $('xzipnote').textContent = '';
+  try {
+    const u = await unzipTerraform(await file.arrayBuffer(), { accept: textPath, maxFiles: 3500, maxFile: 300_000, maxTotal: 12_000_000 });
+    if (!u.files.length) throw new Error('No text files were found in that zip.');
+    // GitHub / Azure DevOps zips wrap everything in one folder: drop it
+    const first = u.entries.map((e) => e.path.split('/')[0]); const wrapped = new Set(first).size === 1 && u.entries.every((e) => e.path.includes('/'));
+    const strip = (p) => (wrapped ? p.split('/').slice(1).join('/') : p);
+    xzipData = { name: file.name.replace(/\.zip$/i, ''), files: u.files.map((f) => ({ path: strip(f.path), content: f.content })), tree: u.entries.map((e) => ({ path: strip(e.path), size: e.size })), truncated: Boolean(u.truncated) };
+    $('xzipnote').textContent = `${file.name}: ${xzipData.files.length} text files read${u.truncated ? ' (large: the rest was skipped)' : ''}. Press Explain.`;
+    xstatus('');
+  } catch (e) { xzipData = null; xstatus(e.message, true); }
+}
+$('xzip').addEventListener('change', (e) => { const f = e.target.files[0]; if (f) loadXZip(f); });
+$('xzipdrop').addEventListener('dragover', (e) => { e.preventDefault(); $('xzipdrop').classList.add('over'); });
+$('xzipdrop').addEventListener('dragleave', () => $('xzipdrop').classList.remove('over'));
+$('xzipdrop').addEventListener('drop', (e) => { e.preventDefault(); $('xzipdrop').classList.remove('over'); const f = e.dataTransfer.files[0]; if (f) loadXZip(f); });
+
+// ---- Explain with AI: the visitor's own Anthropic key, straight from this browser to Anthropic (never through this site)
+try { const k = localStorage.getItem('tfAiKey') || sessionStorage.getItem('tfAiKey'); if (k) { $('xkey').value = k; $('xremember').checked = Boolean(localStorage.getItem('tfAiKey')); } const mdl = localStorage.getItem('tfAiModel'); if (mdl) $('xmodel').value = mdl; } catch {}
+const saveKey = () => { try { localStorage.removeItem('tfAiKey'); sessionStorage.removeItem('tfAiKey'); if ($('xkey').value) (($('xremember').checked ? localStorage : sessionStorage)).setItem('tfAiKey', $('xkey').value); localStorage.setItem('tfAiModel', $('xmodel').value); } catch {} };
+$('xkey').addEventListener('change', saveKey); $('xremember').addEventListener('change', saveKey); $('xmodel').addEventListener('change', saveKey);
+
+async function explainWithAi() {
+  if (!xdata) return;
+  const key = $('xkey').value.trim();
+  if (!key) { $('xaistatus').className = 'err'; $('xaistatus').textContent = 'Paste your Anthropic API key first (console.anthropic.com → API keys).'; return; }
+  saveKey();
+  const { system, user } = buildAiPrompt(xdata.context);
+  const ctrl = new AbortController();
+  $('xaigo').disabled = true; $('xaistatus').className = 'tag'; $('xaistatus').textContent = 'Asking the model… (the explanation appears as it is written)';
+  let text = '';
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST', signal: ctrl.signal,
+      headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+      body: JSON.stringify({ model: $('xmodel').value, max_tokens: 4096, stream: true, system, messages: [{ role: 'user', content: user }] }),
+    });
+    if (!res.ok) {
+      let detail = ''; try { detail = (await res.json()).error?.message ?? ''; } catch {}
+      throw new Error(res.status === 401 ? 'Anthropic refused the key (401). Check that it is a valid API key.' : res.status === 429 ? 'Anthropic says too many requests or no credit left (429). Wait a moment or check your plan.' : res.status === 404 ? `That model is not available to your key (404). Pick another model. ${detail}` : `Anthropic answered ${res.status}. ${detail}`);
+    }
+    const reader = res.body.getReader(); const dec = new TextDecoder(); let buf = '';
+    $('xbadge').textContent = `being written by ${$('xmodel').selectedOptions[0].textContent.split(' (')[0]}…`;
+    for (;;) {
+      const { done, value } = await reader.read(); if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let i;
+      while ((i = buf.indexOf('\n\n')) >= 0) {
+        const ev = buf.slice(0, i); buf = buf.slice(i + 2);
+        const data = /^data:\s*(.*)$/m.exec(ev)?.[1];
+        if (!data || data === '[DONE]') continue;
+        let j; try { j = JSON.parse(data); } catch { continue; }
+        if (j.type === 'error') throw new Error(j.error?.message ?? 'The model stopped with an error.');
+        if (j.type === 'content_block_delta' && j.delta?.type === 'text_delta') { text += j.delta.text; $('xexplain').innerHTML = mdToHtml(parseAiReply(text).markdown); }
+      }
+    }
+    const r = parseAiReply(text);
+    $('xexplain').innerHTML = mdToHtml(r.markdown);
+    $('xbadge').textContent = `written by ${$('xmodel').selectedOptions[0].textContent.split(' (')[0]} from the overview, using your key. It can be wrong: check it against the code`;
+    if (r.diagram) { xAiDiagram = r.diagram; xShown = 'ai'; $('xsrcseg').hidden = false; document.querySelectorAll('#xsrcseg button').forEach((x) => x.classList.toggle('on', x.dataset.v === 'ai')); drawXDiagram(); $('xaistatus').textContent = 'Done. Switch between the AI diagram and the detected structure above the diagram.'; }
+    else $('xaistatus').textContent = 'The explanation is done, but the model did not return a usable diagram. The detected structure is still shown.';
+  } catch (e) {
+    $('xaistatus').className = 'err'; $('xaistatus').textContent = /Failed to fetch|NetworkError/i.test(e.message) ? 'Could not reach Anthropic from this browser (network, ad blocker or company proxy). Try the Connect AI tab instead.' : e.message;
+    if (text) $('xbadge').textContent = 'partly written, then stopped';
+  } finally { $('xaigo').disabled = false; }
+}
+$('xaigo').addEventListener('click', explainWithAi);
+syncXMode();
+if (location.hash === '#explain') showPage('explain');
+
 // ---- Share link: the repo plus the view (style, layer, folder, filters...) in the address
 let pendingRoot = '';
 let pendingVarfile = '';
@@ -563,8 +836,8 @@ $('copylink').addEventListener('click', async () => {
 });
 
 // ---- Export: a standalone SVG (theme colours and icons baked in) or a PNG of it
-async function standaloneSvg() {
-  const el = $('out').querySelector('svg');
+async function standaloneSvg(host = $('out')) {
+  const el = host.querySelector('svg');
   if (!el) return null;
   const cs = getComputedStyle(document.documentElement);
   const val = (n) => cs.getPropertyValue(n).trim() || '#888';
@@ -591,12 +864,12 @@ function save(blob, name) {
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 }
 const fileBase = () => (($('repo').value.match(/github\.com\/([^/]+\/[^/?#]+)/)?.[1] ?? 'terraform').replace(/[^\w.-]+/g, '-')) + '-diagram';
-$('dlsvg').addEventListener('click', async () => {
-  const s = await standaloneSvg();
-  if (s) save(new Blob([s.text], { type: 'image/svg+xml' }), `${fileBase()}.svg`);
-});
-$('dlpng').addEventListener('click', async () => {
-  const s = await standaloneSvg();
+async function downloadSvg(host, base) {
+  const s = await standaloneSvg(host);
+  if (s) save(new Blob([s.text], { type: 'image/svg+xml' }), `${base}.svg`);
+}
+async function downloadPng(host, base, statusEl = $('status')) {
+  const s = await standaloneSvg(host);
   if (!s) return;
   const scale = Math.min(2, 8000 / Math.max(s.w, s.h));
   const img = new Image();
@@ -604,11 +877,13 @@ $('dlpng').addEventListener('click', async () => {
     const c = document.createElement('canvas');
     c.width = Math.round(s.w * scale); c.height = Math.round(s.h * scale);
     const g = c.getContext('2d'); g.scale(scale, scale); g.drawImage(img, 0, 0, s.w, s.h);
-    c.toBlob((b) => b && save(b, `${fileBase()}.png`), 'image/png');
+    c.toBlob((b) => b && save(b, `${base}.png`), 'image/png');
   };
-  img.onerror = () => { $('status').className = 'err'; $('status').textContent = 'Could not make a PNG here: download the SVG instead.'; };
+  img.onerror = () => { statusEl.className = 'err'; statusEl.textContent = 'Could not make a PNG here: download the SVG instead.'; };
   img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(s.text);
-});
+}
+$('dlsvg').addEventListener('click', () => downloadSvg($('out'), fileBase()));
+$('dlpng').addEventListener('click', () => downloadPng($('out'), fileBase()));
 
 // Zoom scales the drawing's size; the box around it scrolls to pan. Ctrl/Cmd + mouse wheel zooms too.
 let zoom = 1;
@@ -960,7 +1235,7 @@ $('f').addEventListener('submit', (e) => { e.preventDefault(); if (mode() === 's
 // the private-repository tab exists only when the page is served from this computer (server.js), never on the public site
 fetch('/api/local').then((r) => (r.ok ? r.json() : null)).catch(() => null).then((info) => {
   if (!info?.local) return;
-  $('localTab').hidden = false;
+  $('localTab').hidden = false; $('xlocalTab').hidden = false;
   if (!info.git) $('localTab').title = 'git was not found on this computer: use an Azure DevOps token, or upload a zip';
   paintModes();
 });

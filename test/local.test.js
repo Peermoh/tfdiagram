@@ -85,3 +85,20 @@ test('the private-repository endpoints answer this computer only, and the public
     assert.equal((await get('/api/local/fetch', { host: 'evil.example' }, 'POST', '{}')).status, 404);
   } finally { srv.kill(); }
 });
+
+test('reading a repository with local git, all text files (for the repo explainer)', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'tfd-all-'));
+  const git = (...a) => execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', '-c', 'init.defaultBranch=main', ...a], { cwd: dir, stdio: 'pipe' });
+  git('init');
+  mkdirSync(join(dir, 'src'), { recursive: true });
+  writeFileSync(join(dir, 'README.md'), '# Hi\n\nSome words about this repository that are long enough.\n');
+  writeFileSync(join(dir, 'src/app.py'), 'print(1)\n');
+  writeFileSync(join(dir, 'logo.png'), Buffer.from([137, 80, 78, 71, 0, 1, 2]));
+  writeFileSync(join(dir, 'package-lock.json'), '{}');
+  git('add', '-A'); git('commit', '-m', 'one');
+  const r = await readRepoWithGit(dir, { allowLocal: true, all: true });
+  assert.deepEqual(r.files.map((f) => f.path).sort(), ['README.md', 'src/app.py']);
+  assert.deepEqual(r.tree.map((t) => t.path).sort(), ['README.md', 'src/app.py']);
+  const tf = await readRepoWithGit(dir, { allowLocal: true });
+  assert.deepEqual(tf.files, []);                                                      // the Terraform reader still reads only Terraform
+});
