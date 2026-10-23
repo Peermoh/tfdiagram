@@ -577,7 +577,8 @@ async function loadZip(file) {
   } catch (e) {
     zipFiles = null;
     $('status').className = 'err'; $('status').textContent = e.message;
-    $('checks').hidden = true; $('view').hidden = true; $('out').textContent = ''; $('legend').textContent = ''; $('allcode').hidden = true;   // don't leave the previous project on screen
+    $('checks').hidden = true;
+    $('allcode').hidden = true; if (!$('repodir').options.length) $('repodirLabel').hidden = true; if (!$('zipdir').options.length) $('zipdirLabel').hidden = true; $('view').hidden = true; $('out').textContent = ''; $('legend').textContent = ''; $('allcode').hidden = true;   // don't leave the previous project on screen
   }
 }
 $('zip').addEventListener('change', (e) => { const f = e.target.files[0]; if (f) loadZip(f); });

@@ -1154,7 +1154,7 @@ test('registry modules: sources are classified, versions picked, and the module 
     if (url.includes('/acme/missing/')) return new Response('no', { status: 404 });
     if (url.endsWith('/versions')) return new Response(JSON.stringify({ modules: [{ versions: [{ version: '1.0.0' }, { version: '1.2.0' }] }] }));
     if (url.endsWith('/1.2.0/download')) return new Response(null, { status: 204, headers: { 'x-terraform-get': 'git::https://github.com/acme/terraform-aws-net?ref=v1.2.0' } });
-    if (url.includes('/zipball/')) return new Response(zip, { headers: { 'content-length': String(zip.length) } });
+    if (url.includes('/zip/')) return new Response(zip, { headers: { 'content-length': String(zip.length) } });
     return new Response('no', { status: 404 });
   };
   try {
@@ -1167,7 +1167,7 @@ test('registry modules: sources are classified, versions picked, and the module 
     assert.ok(ids.includes('module.net.aws_vpc.this') && ids.includes('module.net.aws_subnet.a'), ids.join(', '));
     assert.ok(!ids.some((i) => /noise/.test(i)));                                     // examples/ is skipped
     assert.deepEqual(data.graph.nodes.find((n) => n.id === 'module.net.aws_vpc.this').cidrs, ['10.9.0.0/16']);   // the caller's value wins
-    assert.ok(asked.some((u) => u.includes('/zipball/v1.2.0')));
+    assert.ok(asked.some((u) => u.startsWith('https://codeload.github.com/acme/terraform-aws-net/zip/v1.2.0')));
     assert.ok(data.checks.some((c) => /Opened 1 module from the Terraform registry/.test(c.text)), JSON.stringify(data.checks));
     assert.ok(data.checks.some((c) => /could not be opened \(acme\/missing\/aws\)/.test(c.text)));
   } finally { globalThis.fetch = real; }
@@ -1181,4 +1181,29 @@ test('variable values typed by the user override defaults', async () => {
   const d = await post({ code, vars: 'n = 4\n' });
   assert.equal(d.graph.nodes[0].instances, 4);
   assert.ok(d.checks.some((c) => /Applied your variable values/.test(c.text)));
+});
+
+test('GitHub URL: the repository comes as one zip (no API listing, no rate limit), falling back to the API when the zip fails', async () => {
+  const fs = await import('node:fs');
+  const { fetchTerraformTree } = await import('../lib/github.js');
+  const zip = fs.readFileSync(new URL('./fixtures/module.zip', import.meta.url));
+  const real = globalThis.fetch;
+  let asked = [];
+  globalThis.fetch = async (url) => {
+    url = String(url); asked.push(url);
+    if (url.startsWith('https://codeload.github.com/')) return new Response(zip, { headers: { 'content-length': String(zip.length) } });
+    return new Response('no', { status: 404 });
+  };
+  try {
+    const r = await fetchTerraformTree('https://github.com/acme/net', undefined);
+    assert.equal(asked.length, 1);
+    assert.ok(asked[0].startsWith('https://codeload.github.com/acme/net/zip/HEAD'));
+    assert.ok(r.tree.files.some((f) => f.path === 'main.tf'));
+    assert.ok(r.fileCount >= 1);
+    // zip unavailable: the API listing is used (here it is missing too, so the error names GitHub)
+    asked = [];
+    globalThis.fetch = async (url) => { asked.push(String(url)); return new Response('no', { status: 403 }); };
+    await assert.rejects(() => fetchTerraformTree('https://github.com/acme/net', undefined), /GitHub 403/);
+    assert.ok(asked.some((u) => u.includes('api.github.com') && u.includes('/git/trees/')));
+  } finally { globalThis.fetch = real; }
 });
