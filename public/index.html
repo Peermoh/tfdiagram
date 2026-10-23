@@ -197,6 +197,8 @@
   .vhead [hidden] { display:none !important; }
   .vpane { min-width:0; } .vhead { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:8px; } .vhead .grow { flex:1; } .vhead code { word-break:break-all; }
   .viewer { border:1px solid var(--line); border-radius:12px; background:var(--card2); max-height:620px; overflow:auto; padding:10px 14px; min-height:120px; } .viewer pre.code { border:0; background:none; padding:0; max-height:none; } .viewer .prose { font-size:14.5px; }
+  .catrow { padding:10px 0; border-bottom:1px solid var(--line); } .catrow:last-child { border:0; } .cathead { display:flex; gap:10px; align-items:baseline; flex-wrap:wrap; } .catrow ul { margin:6px 0 0; padding-left:18px; font-size:13.5px; } .catrow li { margin:2px 0; word-break:break-word; } .catrow a { color:var(--accent); }
+  #xcatbody { max-height:640px; overflow:auto; }
   .browser.linksonly { grid-template-columns:1fr; } .browser.linksonly .treebox { max-height:360px; }
   @media (max-width:760px) { .browser { grid-template-columns:1fr; } .bpane .treebox { max-height:240px; } }
   .kindtag { display:inline-block; padding:1px 9px; border-radius:999px; font-size:12px; font-weight:600; background:var(--accent-soft); color:var(--accent); }
@@ -416,6 +418,11 @@
         <button type="button" id="xaigo" class="ghost ic" style="--i:var(--i-sparkle)">Explain with AI</button>
       </div>
       <div id="xaistatus" class="tag" style="margin-top:8px"></div>
+    </div>
+    <div class="card" id="xcatalog" hidden>
+      <div class="xhead"><b class="ic" style="--i:var(--i-layers)">What the README lists</b><span class="grow"></span><span class="tag" id="xcatnote"></span></div>
+      <input type="search" id="xcatq" placeholder="Filter topics and links" style="width:100%;padding:7px 12px 7px 34px;background:var(--card2) var(--i-filter) 11px center/16px no-repeat;margin:8px 0">
+      <div id="xcatbody"></div>
     </div>
     <div class="card" id="xbrowse">
       <div class="xhead"><b class="ic" style="--i:var(--i-folder)">Browse the repository</b><span class="grow"></span><span class="tag" id="xbrowsenote"></span><a id="xgh" href="#" target="_blank" rel="noopener" class="ghost" hidden>Open on GitHub ↗</a></div>
@@ -836,6 +843,18 @@ $('xfq').addEventListener('input', () => {
 // file names in the tables open in the browser
 $('xresult').addEventListener('click', (e) => { const o = e.target.closest('[data-openfile]'); if (!o) return; e.preventDefault(); if (xLinksOnly) window.open(ghBlob(o.dataset.openfile), '_blank', 'noopener'); else openFile(o.dataset.openfile, true); });
 
+// catalog-style README (awesome lists, "build your own x"): topics with the links they list
+function drawCatalog(m) {
+  const c = m.catalog;
+  $('xcatalog').hidden = !c;
+  if (!c) return;
+  $('xcatnote').textContent = `${c.sections.length} topics · ${c.links} links${c.hosts.length ? ` · mostly ${c.hosts.slice(0, 3).map((h) => h.host).join(', ')}` : ''}`;
+  const q = ($('xcatq').value || '').trim().toLowerCase();
+  const rows = c.sections.filter((s) => !q || s.title.toLowerCase().includes(q) || s.sample.some((i) => i.text.toLowerCase().includes(q)));
+  $('xcatbody').innerHTML = rows.length ? rows.map((s) => `<div class="catrow"><div class="cathead"><b>${HX(s.title)}</b><span class="tag">${s.count} link${s.count === 1 ? '' : 's'}${s.parent ? ` · ${HX(s.parent)}` : ''}</span></div><ul>${s.sample.map((i) => `<li><a href="${HX(i.url)}" target="_blank" rel="noopener">${HX(i.text)}</a></li>`).join('')}${s.count > s.sample.length ? `<li class="tag">… and ${s.count - s.sample.length} more in the README</li>` : ''}</ul></div>`).join('') : '<p class="tag">No topic matches.</p>';
+}
+$('xcatq').addEventListener('input', () => { if (xdata?.model) drawCatalog(xdata.model); });
+
 async function runExplain(forceRepo = false) {
   const m = forceRepo ? 'repo' : xmode();
   let localFiles = null;
@@ -856,6 +875,7 @@ async function runExplain(forceRepo = false) {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
     showExplain(data);
+    drawCatalog(data.model);
     setupBrowser(data, m === 'zip' ? xzipData.files : m === 'local' ? localFiles : null);
     xstatus(`${data.name}: ${data.model.components.length} parts, ${data.model.techs.length} technologies, ${data.fileCount} files`);
   } catch (e) { xstatus(e.message, true); $('xresult').hidden = true; } finally { $('xgo').disabled = false; }

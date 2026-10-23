@@ -116,3 +116,13 @@ test('repo file endpoint rejects traversal and returns text', async () => {
     assert.equal((await ok.json()).content, 'hello\nworld');
   } finally { globalThis.fetch = orig; }
 });
+
+test('catalog README becomes topics, links and a diagram', () => {
+  const readme = '# Build your own x\n\nGuides.\n\n## Tutorials\n\n### Build your own `Database`\n\n* [Python: Write a db](https://example.com/a)\n* [Go: Another db](https://example.org/b)\n\n### Build your own `Shell`\n\n* [C: A shell](https://example.com/c)\n\n### Build your own `Git`\n\n* [Ruby: git](https://example.com/d)\n\n## Contribute\n\n* [x](https://x.dev)\n';
+  const m = analyzeRepo({ name: 'o/x', tree: [{ path: 'README.md', size: 300 }, { path: 'a.md', size: 10 }, { path: 'b.md', size: 10 }], files: [{ path: 'README.md', content: readme }, { path: 'a.md', content: 'a' }, { path: 'b.md', content: 'b' }] });
+  assert.equal(m.contentRepo, true);
+  assert.deepEqual(m.catalog.sections.map((s) => s.title), ['Database', 'Shell', 'Git']);
+  assert.equal(m.catalog.links, 4);
+  assert.ok(m.diagram.nodes.some((n) => n.label === 'Database'));
+  assert.match(m.explanation.join(' '), /catalog: 3 topics/);
+});
