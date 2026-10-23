@@ -6,150 +6,322 @@
 <title>TFDiagram</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="theme-color" content="#0b1120">
+<meta name="theme-color" content="#6d4aff">
 <script>try { const t = localStorage.getItem('tfTheme'); if (t) document.documentElement.dataset.theme = t; } catch {}</script>
 <style>
-  :root { --bg:#fff; --fg:#1a1a1a; --muted:#666; --line:#d8d8d8; --accent:#c2410c; --card:#fff; --edge:#64748b; --link:#1d4ed8; }
-  @media (prefers-color-scheme: dark) { :root:not([data-theme=light]) { --bg:#111; --fg:#eee; --muted:#999; --line:#333; --accent:#fb923c; --card:#1b1b1b; --edge:#94a3b8; --link:#7db4ff; } }
+  :root {
+    --bg:#f5f6fb; --fg:#171a2b; --muted:#667085; --line:#e4e7f0; --card:#ffffff; --card2:#f8f9fd;
+    --accent:#6d4aff; --accent2:#9b5cff; --accent-soft:rgba(109,74,255,.10); --edge:#64748b; --link:#4f46e5;
+    --shadow:0 1px 2px rgba(23,26,43,.05), 0 8px 24px rgba(23,26,43,.06); --ring:0 0 0 3px rgba(109,74,255,.22);
+    --grid:rgba(23,26,43,.06); --good:#16a34a; --warn:#d97706; --bad:#dc2626; color-scheme:light;
+  --i-paste:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M9 4h6v3H9zM8 5H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M8 12h8M8 16h5%22/%3E%3C/svg%3E");
+  --i-github:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M9 19c-4 1.5-4-2-6-2m12 4v-3.5a3 3 0 0 0-.8-2.3c2.7-.3 5.5-1.3 5.5-6a4.7 4.7 0 0 0-1.3-3.3 4.4 4.4 0 0 0-.1-3.2s-1-.3-3.4 1.3a11.7 11.7 0 0 0-6.2 0C6.3 2.1 5.3 2.4 5.3 2.4a4.4 4.4 0 0 0-.1 3.2A4.7 4.7 0 0 0 3.9 9c0 4.6 2.8 5.7 5.5 6a3 3 0 0 0-.8 2.3V21%22/%3E%3C/svg%3E");
+  --i-zip:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M3 7h18v4H3zM5 11h14v9H5zM10 14h4%22/%3E%3C/svg%3E");
+  --i-search:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4%22/%3E%3C/svg%3E");
+  --i-sun:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4%22/%3E%3C/svg%3E");
+  --i-moon:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z%22/%3E%3C/svg%3E");
+  --i-auto:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 3v18M12 3a9 9 0 0 1 0 18z%22/%3E%3C/svg%3E");
+  --i-sliders:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0M14 4v4M8 10v4M16 16v4%22/%3E%3C/svg%3E");
+  --i-layers:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M12 3l9 5-9 5-9-5zM3 13l9 5 9-5%22/%3E%3C/svg%3E");
+  --i-download:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M12 4v11M7 11l5 5 5-5M5 20h14%22/%3E%3C/svg%3E");
+  --i-link:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1%22/%3E%3C/svg%3E");
+  --i-plus:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M12 5v14M5 12h14%22/%3E%3C/svg%3E");
+  --i-minus:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M5 12h14%22/%3E%3C/svg%3E");
+  --i-sparkle:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z%22/%3E%3C/svg%3E");
+  --i-flow:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M4 4h6v6H4zM14 14h6v6h-6zM10 7h4a3 3 0 0 1 3 3v4%22/%3E%3C/svg%3E");
+  --i-ltr:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M4 12h16M14 6l6 6-6 6%22/%3E%3C/svg%3E");
+  --i-ttb:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M12 4v16M6 14l6 6 6-6%22/%3E%3C/svg%3E");
+  --i-grid:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z%22/%3E%3C/svg%3E");
+  --i-arch:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M3 20h18M5 20V8l7-4 7 4v12M9 20v-6h6v6%22/%3E%3C/svg%3E");
+  --i-play:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M7 4l13 8-13 8z%22/%3E%3C/svg%3E");
+  --i-copy:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M9 9h10v10H9zM5 15V5h10%22/%3E%3C/svg%3E");
+  --i-plug:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M9 3v5M15 3v5M6 8h12v4a6 6 0 0 1-12 0zM12 18v3%22/%3E%3C/svg%3E");
+  --i-check:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6zM9 12l2 2 4-4%22/%3E%3C/svg%3E");
+  --i-code:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M8 7l-5 5 5 5M16 7l5 5-5 5M14 4l-4 16%22/%3E%3C/svg%3E");
+  --i-filter:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M4 5h16l-6 8v6l-4-2v-4z%22/%3E%3C/svg%3E");
+  --i-x:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M6 6l12 12M18 6L6 18%22/%3E%3C/svg%3E");
+  --i-back:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M19 12H5M11 6l-6 6 6 6%22/%3E%3C/svg%3E");
+  --i-list:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01%22/%3E%3C/svg%3E");
+  --i-key:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M8 15a4 4 0 1 1 3.9-4.9H21v3h-3v3h-3v-3h-3.1A4 4 0 0 1 8 15z%22/%3E%3C/svg%3E");
+  }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme=light]) { --bg:#0d0f1a; --fg:#e8eaf6; --muted:#98a0b8; --line:#262a3d; --card:#151828; --card2:#1a1e31; --accent:#9d85ff; --accent2:#c084fc; --accent-soft:rgba(157,133,255,.14); --edge:#94a3b8; --link:#a5b4fc; --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 28px rgba(0,0,0,.35); --ring:0 0 0 3px rgba(157,133,255,.3); --grid:rgba(255,255,255,.06); color-scheme:dark; } }
   :root[data-theme=light] { color-scheme:light; }
-  input[type=search] { padding:6px 10px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--fg); font:inherit; }
-  :root[data-theme=dark] { --bg:#111; --fg:#eee; --muted:#999; --line:#333; --accent:#fb923c; --card:#1b1b1b; --edge:#94a3b8; --link:#7db4ff; color-scheme:dark; }
-  .zoom button { padding:3px 11px; white-space:nowrap; font-size:15px; background:transparent; color:var(--fg); border:1px solid var(--line); } .zoom button:first-child { border-radius:6px 0 0 6px; } .zoom button:last-child { border-radius:0 6px 6px 0; } .zoom button + button { margin-left:-1px; } #zreset { min-width:58px; font-size:13px; }
-  #themebox { float:right; font-size:14px; color:var(--muted); }
-  * { box-sizing: border-box; }
-  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.5 system-ui, sans-serif; }
-  main { max-width: 1100px; margin: 0 auto; padding: 32px 16px; }
-  h1 { margin: 0 0 4px; }
-  h1.brand { display:flex; align-items:center; gap:12px; } h1.brand img { border-radius:10px; flex:none; } p.sub { margin: 0 0 24px; color: var(--muted); }
-  form { display:flex; gap:8px; flex-wrap:wrap; }
-  input[type=text], input[type=password] { flex:1 1 280px; padding:10px 12px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--fg); font:inherit; }
-  textarea { flex:1 1 100%; padding:10px 12px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--fg); font:13px/1.4 ui-monospace, monospace; }
-  select { padding:4px; background:var(--bg); color:var(--fg); border:1px solid var(--line); border-radius:6px; }
-  button { padding:10px 18px; border:0; border-radius:6px; background:var(--accent); color:#fff; font:inherit; cursor:pointer; }
-  button:disabled { opacity:.6; cursor:wait; }
-  .opts { margin:12px 0; display:flex; gap:16px; flex-wrap:wrap; color:var(--muted); font-size:14px; }
-  #status { margin:16px 0; color:var(--muted); } #status.err { color:#dc2626; }
-  #out { border:1px solid var(--line); border-radius:8px; padding:16px; overflow:auto; min-height:80px; }
-  .tabs { display:flex; gap:6px; flex-wrap:wrap; margin:8px 0; }
-  .tabs button { background:transparent; color:var(--fg); border:1px solid var(--line); padding:6px 12px; font-size:14px; }
-  .tabs button.on { background:var(--accent); color:#fff; border-color:var(--accent); }
-  .legend { display:flex; flex-wrap:wrap; gap:6px 18px; margin:10px 0; font-size:13px; color:var(--muted); }
-  .legend span.k { display:inline-block; max-width:100%; }
-  .legend i { width:12px; height:12px; border-radius:3px; display:inline-block; margin-right:6px; vertical-align:-1px; }
-  .legend b { color:var(--fg); font-weight:600; }
-  #panel { position:fixed; left:0; right:0; bottom:0; max-height:55vh; overflow:auto; background:var(--card); color:var(--fg); border-top:2px solid var(--accent); padding:14px 16px 20px; box-shadow:0 -6px 24px rgba(0,0,0,.35); z-index:10; }
-  #panel[hidden] { display:none; }
-  #panel h2 { margin:0 28px 2px 0; font-size:17px; } #panel .meta { color:var(--muted); font-size:13px; margin-bottom:10px; }
-  #panel table { border-collapse:collapse; width:100%; font-size:14px; } #panel th, #panel td { text-align:left; padding:5px 10px 5px 0; border-bottom:1px solid var(--line); vertical-align:top; }
-  #panel th { color:var(--muted); font-weight:600; font-size:12px; text-transform:uppercase; letter-spacing:.04em; }
-  pre.code { overflow:auto; max-height:480px; padding:10px 12px; border:1px solid var(--line); border-radius:6px; font:12.5px/1.45 ui-monospace, monospace; background:var(--bg); } pre.code .ln { color:var(--muted); display:inline-block; width:3.2em; text-align:right; padding-right:1em; user-select:none; } pre.code .hl { background:rgba(251,146,60,.18); display:block; }
-  #panel code { font-family:ui-monospace, monospace; } #panel .deny { color:#dc2626; font-weight:600; } #panel .tag { color:var(--muted); font-size:12px; }
-  #panel #close { position:absolute; top:8px; right:10px; background:transparent; color:var(--fg); border:1px solid var(--line); padding:4px 10px; }
-  #backbar { position:sticky; top:0; z-index:8; display:flex; align-items:center; gap:12px; padding:8px 0; background:var(--bg); }
-  #zipbox { flex:1 1 100%; } #zipdrop { display:block; border:2px dashed var(--line); border-radius:8px; padding:18px; text-align:center; color:var(--muted); cursor:pointer; }
-  #zipdrop.over { border-color:var(--accent); color:var(--fg); } #zipdrop input { display:block; margin:0 auto 8px; max-width:100%; }
-  #zipdirLabel { display:block; margin-top:10px; color:var(--muted); font-size:14px; } #zipdirLabel select { max-width:100%; }
-  .tag { color:var(--muted); font-size:13px; }
-  #checks { margin:6px 0 10px; font-size:14px; } #checks ul { list-style:none; padding:0; margin:4px 0; } #checks li { padding:3px 0 3px 24px; position:relative; }
-  #checks li::before { position:absolute; left:0; } #checks .error::before { content:'✕'; color:#dc2626; } #checks .warn::before { content:'⚠'; color:#d97706; }
-  #checks .info::before { content:'ℹ'; color:var(--accent); } #checks .ok::before { content:'✓'; color:#16a34a; }
-  #checks .error { color:#dc2626; font-weight:600; } #checks summary { cursor:pointer; color:var(--muted); }
-  #sq { width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--fg); font:inherit; }
+  :root[data-theme=dark] { --bg:#0d0f1a; --fg:#e8eaf6; --muted:#98a0b8; --line:#262a3d; --card:#151828; --card2:#1a1e31; --accent:#9d85ff; --accent2:#c084fc; --accent-soft:rgba(157,133,255,.14); --edge:#94a3b8; --link:#a5b4fc; --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 28px rgba(0,0,0,.35); --ring:0 0 0 3px rgba(157,133,255,.3); --grid:rgba(255,255,255,.06); color-scheme:dark; }
+  * { box-sizing:border-box; }
+  html { scroll-behavior:smooth; }
+  body { margin:0; color:var(--fg); font:15px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing:antialiased;
+    background:radial-gradient(900px 420px at 12% -8%, var(--accent-soft), transparent 70%), radial-gradient(800px 380px at 95% -4%, rgba(255,140,60,.08), transparent 70%), var(--bg); background-attachment:fixed; }
   a { color:var(--link); }
-  #searchbox { flex:1 1 100%; } .hit { border:1px solid var(--line); border-radius:8px; padding:12px 14px; margin:10px 0; }
-  #sclear { background:transparent; color:var(--fg); border:1px solid var(--line); padding:6px 12px; font-size:14px; }
+  code { font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:.92em; background:var(--accent-soft); padding:1px 6px; border-radius:6px; }
+  .ic::before { content:''; display:inline-block; width:1.15em; height:1.15em; vertical-align:-.2em; margin-right:.45em; background:currentColor; -webkit-mask:var(--i) center/contain no-repeat; mask:var(--i) center/contain no-repeat; }
+  .ic.only::before { margin:0; }
+
+  /* top bar */
+  .top { position:sticky; top:0; z-index:20; backdrop-filter:saturate(1.6) blur(14px); -webkit-backdrop-filter:saturate(1.6) blur(14px); background:color-mix(in srgb, var(--bg) 78%, transparent); border-bottom:1px solid var(--line); }
+  .top-in { max-width:1180px; margin:0 auto; padding:10px 16px; display:flex; align-items:center; gap:14px; }
+  .brand { display:flex; align-items:center; gap:10px; font-weight:800; font-size:19px; letter-spacing:-.02em; margin-right:auto; }
+  .brand img { border-radius:10px; box-shadow:0 4px 14px rgba(109,74,255,.35); }
+  .brand small { font-weight:600; font-size:11px; color:var(--accent); background:var(--accent-soft); border-radius:999px; padding:2px 8px; margin-left:2px; letter-spacing:.02em; }
+  .nav { position:relative; display:flex; gap:2px; padding:4px; background:var(--card); border:1px solid var(--line); border-radius:999px; box-shadow:var(--shadow); }
+  .nav button { position:relative; z-index:1; border:0; background:transparent; color:var(--muted); padding:7px 15px; border-radius:999px; font:600 14px/1 inherit; cursor:pointer; transition:color .2s; }
+  .nav button.on { color:#fff; }
+  .nav .ind, .modes .ind { position:absolute; z-index:0; top:4px; bottom:4px; left:0; width:0; border-radius:999px; background:linear-gradient(135deg, var(--accent), var(--accent2)); box-shadow:0 4px 14px rgba(109,74,255,.35); transition:left .28s cubic-bezier(.4,.1,.2,1), width .28s cubic-bezier(.4,.1,.2,1); }
+  #themebtn { width:38px; height:38px; padding:0; border-radius:50%; border:1px solid var(--line); background:var(--card); color:var(--fg); cursor:pointer; box-shadow:var(--shadow); transition:transform .2s, background .2s; }
+  #themebtn:hover { transform:rotate(18deg) scale(1.06); }
+  #theme { display:none; }
+
+  main { max-width:1180px; margin:0 auto; padding:26px 16px 70px; }
+  .page { animation:rise .35s cubic-bezier(.2,.7,.2,1) both; } .page[hidden] { display:none; }
+  @keyframes rise { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:none; } }
+  .hero { padding:10px 0 20px; }
+  .hero h1 { margin:0 0 8px; font-size:clamp(26px,4.4vw,40px); line-height:1.1; letter-spacing:-.03em; font-weight:800; }
+  .hero h1 em { font-style:normal; background:linear-gradient(120deg, var(--accent), #ff8a3d); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .hero p { margin:0 0 14px; color:var(--muted); max-width:62ch; font-size:16px; }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; }
+  .chip { display:inline-flex; align-items:center; gap:6px; font-size:12.5px; font-weight:600; color:var(--muted); background:var(--card); border:1px solid var(--line); padding:4px 11px; border-radius:999px; }
+
+  .card { background:var(--card); border:1px solid var(--line); border-radius:18px; box-shadow:var(--shadow); padding:18px; }
+  .card + .card, .card + #status, #status + #result { margin-top:14px; }
+
+  /* source picker */
+  .modes { position:relative; display:inline-flex; flex-wrap:wrap; gap:2px; padding:4px; background:var(--card2); border:1px solid var(--line); border-radius:999px; margin-bottom:14px; max-width:100%; }
+  .modes label { position:relative; z-index:1; display:inline-flex; align-items:center; padding:8px 14px; border-radius:999px; font-weight:600; font-size:14px; color:var(--muted); cursor:pointer; transition:color .2s; user-select:none; }
+  .modes label.on { color:#fff; }
+  .modes input { position:absolute; opacity:0; pointer-events:none; }
+  .modes .ind { top:4px; bottom:4px; }
+  form { display:flex; gap:10px; flex-wrap:wrap; align-items:flex-start; }
+  input[type=text], input[type=password], input[type=search], textarea, select { font:inherit; color:var(--fg); background:var(--card2); border:1px solid var(--line); border-radius:12px; transition:border-color .15s, box-shadow .15s; }
+  input[type=text], input[type=password], input[type=search], textarea { padding:11px 13px; }
+  input:focus, textarea:focus, select:focus { outline:none; border-color:var(--accent); box-shadow:var(--ring); }
+  input[type=text] { flex:1 1 280px; }
+  textarea { flex:1 1 100%; width:100%; font:13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; min-height:190px; resize:vertical; }
+  select { padding:7px 10px; cursor:pointer; }
+  button { font:inherit; }
+  #go { display:inline-flex; align-items:center; gap:8px; padding:11px 22px; border:0; border-radius:12px; color:#fff; font-weight:700; cursor:pointer; background:linear-gradient(135deg, var(--accent), var(--accent2)); box-shadow:0 8px 20px rgba(109,74,255,.32); transition:transform .15s, box-shadow .15s, filter .15s; }
+  #go:hover { transform:translateY(-1px); filter:brightness(1.05); box-shadow:0 12px 26px rgba(109,74,255,.4); } #go:active { transform:none; }
+  #go::before { content:''; width:1em; height:1em; background:currentColor; -webkit-mask:var(--i-play) center/contain no-repeat; mask:var(--i-play) center/contain no-repeat; }
+  #go:disabled { opacity:.8; cursor:wait; } #go:disabled::before { -webkit-mask:none; mask:none; border:2px solid rgba(255,255,255,.4); border-top-color:#fff; border-radius:50%; background:none; animation:spin .7s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .ghost { display:inline-flex; align-items:center; gap:6px; background:transparent; color:var(--fg); border:1px solid var(--line); border-radius:10px; padding:7px 13px; font-weight:600; font-size:13.5px; cursor:pointer; transition:background .15s, border-color .15s; }
+  .ghost:hover { background:var(--accent-soft); border-color:var(--accent); }
+  #go[hidden], #f[hidden] { display:none; }
+
+  /* options */
+  .optbar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:14px; padding-top:14px; border-top:1px dashed var(--line); color:var(--muted); font-size:13.5px; }
+  .optbar label.f { display:inline-flex; align-items:center; gap:7px; }
+  #optpanel { display:grid; grid-template-rows:0fr; transition:grid-template-rows .3s ease; }
+  #optpanel > div { overflow:hidden; } #optpanel.open { grid-template-rows:1fr; }
+  #optpanel .inner { padding-top:12px; display:flex; flex-direction:column; gap:12px; }
+  #optpanel textarea { min-height:84px; }
+  .sw { display:inline-flex; align-items:center; gap:8px; cursor:pointer; user-select:none; color:var(--muted); font-size:13.5px; }
+  .sw input { appearance:none; -webkit-appearance:none; width:34px; height:20px; border-radius:999px; background:var(--line); position:relative; cursor:pointer; transition:background .2s; flex:none; margin:0; }
+  .sw input::after { content:''; position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:50%; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.3); transition:transform .2s; }
+  .sw input:checked { background:linear-gradient(135deg, var(--accent), var(--accent2)); } .sw input:checked::after { transform:translateX(14px); }
+  .sw input:focus-visible { box-shadow:var(--ring); }
+
+  #status { color:var(--muted); font-size:14px; } #status:empty { display:none; } #status.err { color:var(--bad); background:rgba(220,38,38,.08); border:1px solid rgba(220,38,38,.25); border-radius:12px; padding:10px 14px; }
+  .tag { color:var(--muted); font-size:13px; }
+
+  /* search + zip */
+  #searchbox, #zipbox { flex:1 1 100%; }
+  #sq { width:100%; font-size:15px; padding:13px 14px 13px 42px; background:var(--card2) var(--i-search) 14px center/18px no-repeat; }
+  .hit { background:var(--card2); border:1px solid var(--line); border-radius:14px; padding:14px 16px; margin:10px 0; transition:transform .18s, box-shadow .18s, border-color .18s; animation:rise .3s both; }
+  .hit:hover { transform:translateY(-2px); box-shadow:var(--shadow); border-color:var(--accent); }
   .hit h3 { margin:0 0 4px; font-size:16px; } .hit p { margin:4px 0 8px; color:var(--muted); } .hit .meta { font-size:13px; color:var(--muted); }
-  .hit .topics span { display:inline-block; border:1px solid var(--line); border-radius:10px; padding:0 8px; margin:0 6px 4px 0; font-size:12px; color:var(--muted); }
-  #tosearch { margin:0 0 8px; background:transparent; color:var(--fg); border:1px solid var(--line); padding:6px 12px; font-size:14px; }
-  #result[hidden], #f[hidden] { display:none; }
-  #backbar[hidden] { display:none; }
-  #backbar button { padding:8px 16px; } #backlabel { color:var(--muted); font-size:14px; }
-  details { margin-top:16px; } pre { overflow:auto; background:rgba(128,128,128,.1); padding:12px; border-radius:6px; }
+  .hit .topics span { display:inline-block; background:var(--accent-soft); color:var(--accent); border-radius:999px; padding:1px 10px; margin:0 6px 4px 0; font-size:12px; font-weight:600; }
+  .hit button { background:linear-gradient(135deg, var(--accent), var(--accent2)); color:#fff; border:0; border-radius:10px; padding:8px 16px; font-weight:700; cursor:pointer; }
+  #zipdrop { display:block; border:2px dashed var(--line); border-radius:16px; padding:26px 18px; text-align:center; color:var(--muted); cursor:pointer; background:var(--card2); transition:border-color .2s, background .2s, transform .2s; }
+  #zipdrop:hover, #zipdrop.over { border-color:var(--accent); background:var(--accent-soft); color:var(--fg); } #zipdrop input { display:block; margin:0 auto 8px; max-width:100%; }
+  #zipdirLabel, #repodirLabel { display:flex; align-items:center; gap:8px; margin-top:10px; color:var(--muted); font-size:14px; } #zipdirLabel[hidden], #repodirLabel[hidden] { display:none; } #zipdirLabel select, #repodirLabel select { max-width:100%; }
+  #sclear, #tosearch, #backbar button { background:var(--card); color:var(--fg); border:1px solid var(--line); border-radius:10px; padding:7px 14px; font-weight:600; font-size:13.5px; cursor:pointer; transition:border-color .15s, background .15s; }
+  #sclear:hover, #tosearch:hover, #backbar button:hover { border-color:var(--accent); background:var(--accent-soft); }
+  #tosearch { margin:0 0 10px; }
+
+  /* result area */
+  #result[hidden], #result.empty { display:none; }
+  #checks { border-left:4px solid var(--good); padding:10px 14px; font-size:14px; background:var(--card); border-radius:12px; box-shadow:var(--shadow); margin-bottom:12px; }
+  #checks ul { list-style:none; padding:0; margin:4px 0; } #checks li { padding:3px 0 3px 26px; position:relative; }
+  #checks li::before { position:absolute; left:0; font-weight:700; } #checks .error::before { content:'✕'; color:var(--bad); } #checks .warn::before { content:'⚠'; color:var(--warn); }
+  #checks .info::before { content:'ℹ'; color:var(--accent); } #checks .ok::before { content:'✓'; color:var(--good); }
+  #checks .error { color:var(--bad); font-weight:600; } #checks summary { cursor:pointer; color:var(--muted); font-weight:600; }
+  #stat { color:var(--muted); font-size:13.5px; margin:2px 0 8px; }
+  #view { padding:14px; }
+  #view[hidden] { display:none; }
+  .tabs { display:flex; gap:6px; flex-wrap:wrap; margin:0 0 12px; }
+  .tabs button { background:var(--card2); color:var(--muted); border:1px solid var(--line); padding:6px 14px; border-radius:999px; font-size:13.5px; font-weight:600; cursor:pointer; transition:all .18s; }
+  .tabs button:hover { color:var(--fg); border-color:var(--accent); }
+  .tabs button.on { background:linear-gradient(135deg, var(--accent), var(--accent2)); color:#fff; border-color:transparent; box-shadow:0 4px 12px rgba(109,74,255,.3); }
+  .tools { display:flex; flex-wrap:wrap; align-items:center; gap:10px 14px; }
+  .tools .group { display:inline-flex; align-items:center; gap:8px; color:var(--muted); font-size:13.5px; }
+  .tools input[type=search] { width:230px; padding:8px 12px 8px 34px; background:var(--card2) var(--i-filter) 11px center/16px no-repeat; }
+  .seg { display:inline-flex; padding:3px; gap:2px; background:var(--card2); border:1px solid var(--line); border-radius:12px; }
+  .seg button { display:inline-flex; align-items:center; border:0; background:transparent; color:var(--muted); padding:6px 11px; border-radius:9px; font-weight:600; font-size:13px; cursor:pointer; transition:all .18s; }
+  .seg button:hover { color:var(--fg); } .seg button.on { background:var(--card); color:var(--accent); box-shadow:0 1px 4px rgba(23,26,43,.15); }
+  .zoom { display:inline-flex; border:1px solid var(--line); border-radius:12px; overflow:hidden; background:var(--card2); }
+  .zoom button { border:0; background:transparent; color:var(--fg); padding:6px 11px; cursor:pointer; font-weight:600; font-size:13px; white-space:nowrap; transition:background .15s; }
+  .zoom button:hover { background:var(--accent-soft); } .zoom button + button { border-left:1px solid var(--line); } #zreset { min-width:58px; }
+  .zoom .ic::before { margin-right:.35em; }
+  .legend { display:flex; flex-wrap:wrap; gap:6px 16px; margin:12px 2px; font-size:12.5px; color:var(--muted); }
+  .legend span.k { display:inline-block; max-width:100%; }
+  .legend i { width:12px; height:12px; border-radius:4px; display:inline-block; margin-right:6px; vertical-align:-1px; }
+  .legend b { color:var(--fg); font-weight:600; }
+  #out { border:1px solid var(--line); border-radius:18px; padding:16px; overflow:auto; min-height:90px; background:radial-gradient(var(--grid) 1px, transparent 1px) 0 0/22px 22px, var(--card); box-shadow:var(--shadow); }
+  #out svg { animation:rise .4s both; }
+  #backbar { position:sticky; top:62px; z-index:8; display:flex; align-items:center; gap:12px; padding:8px 0; background:color-mix(in srgb, var(--bg) 85%, transparent); backdrop-filter:blur(8px); }
+  #backbar[hidden] { display:none; } #backlabel { color:var(--muted); font-size:14px; }
+  details.fold { margin-top:14px; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:4px 16px; box-shadow:var(--shadow); }
+  details.fold > summary { cursor:pointer; padding:10px 0; font-weight:700; list-style:none; display:flex; align-items:center; } details.fold > summary::-webkit-details-marker { display:none; }
+  details.fold > summary::after { content:''; margin-left:auto; width:9px; height:9px; border-right:2px solid var(--muted); border-bottom:2px solid var(--muted); transform:rotate(45deg); transition:transform .2s; } details.fold[open] > summary::after { transform:rotate(-135deg); }
+  details.fold[hidden] { display:none; }
+  pre { overflow:auto; background:var(--card2); padding:12px; border-radius:12px; }
+  pre.code { max-height:480px; padding:10px 12px; border:1px solid var(--line); border-radius:12px; font:12.5px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; background:var(--card2); }
+  pre.code .ln { color:var(--muted); display:inline-block; width:3.2em; text-align:right; padding-right:1em; user-select:none; } pre.code .hl { background:rgba(255,140,60,.2); display:block; }
+
+  /* details sheet */
+  #panel { position:fixed; left:50%; transform:translateX(-50%); width:min(1100px, 100%); bottom:0; max-height:58vh; overflow:auto; background:var(--card); color:var(--fg); border:1px solid var(--line); border-bottom:0; border-radius:20px 20px 0 0; padding:18px 20px 24px; box-shadow:0 -12px 40px rgba(0,0,0,.28); z-index:30; animation:sheet .28s cubic-bezier(.2,.7,.2,1); }
+  @keyframes sheet { from { transform:translate(-50%, 24px); opacity:0; } to { transform:translate(-50%, 0); opacity:1; } }
+  #panel[hidden] { display:none; }
+  #panel h2 { margin:0 34px 2px 0; font-size:18px; } #panel .meta { color:var(--muted); font-size:13px; margin-bottom:10px; }
+  #panel table { border-collapse:collapse; width:100%; font-size:14px; } #panel th, #panel td { text-align:left; padding:6px 10px 6px 0; border-bottom:1px solid var(--line); vertical-align:top; }
+  #panel th { color:var(--muted); font-weight:700; font-size:11.5px; text-transform:uppercase; letter-spacing:.05em; }
+  #panel code { font-family:ui-monospace, monospace; } #panel .deny { color:var(--bad); font-weight:700; } #panel .tag { color:var(--muted); font-size:12px; }
+  #panel #close { position:absolute; top:12px; right:14px; width:32px; height:32px; padding:0; border-radius:50%; background:var(--card2); color:var(--fg); border:1px solid var(--line); cursor:pointer; }
+  #panel button:not(#close) { background:var(--card2); color:var(--fg); border:1px solid var(--line); border-radius:9px; padding:6px 12px; font-weight:600; cursor:pointer; }
+
+  /* connect AI page */
+  .steps { counter-reset:s; display:grid; gap:12px; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); margin:16px 0; }
+  .step { position:relative; background:var(--card2); border:1px solid var(--line); border-radius:16px; padding:16px 16px 16px 58px; }
+  .step::before { counter-increment:s; content:counter(s); position:absolute; left:16px; top:16px; width:30px; height:30px; border-radius:50%; display:grid; place-items:center; color:#fff; font-weight:800; background:linear-gradient(135deg, var(--accent), var(--accent2)); }
+  .step h3 { margin:0 0 4px; font-size:15px; } .step p { margin:0; color:var(--muted); font-size:13.5px; }
+  .urlbox { display:flex; gap:8px; align-items:center; background:var(--card2); border:1px solid var(--line); border-radius:14px; padding:8px 8px 8px 14px; margin:10px 0; } .urlbox code { background:none; padding:0; flex:1; overflow:auto; white-space:nowrap; font-size:13.5px; }
+  .tools-list { display:grid; gap:10px; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); margin-top:12px; } .tools-list div { background:var(--card2); border:1px solid var(--line); border-radius:14px; padding:12px 14px; } .tools-list b { display:block; font-size:13.5px; margin-bottom:2px; } .tools-list span { color:var(--muted); font-size:13px; }
+  .quote { border-left:4px solid var(--accent); background:var(--accent-soft); border-radius:0 12px 12px 0; padding:10px 14px; font-style:italic; margin:12px 0; }
+  .foot { margin-top:28px; text-align:center; } .foot .legend { justify-content:center; }
+  .nav button, .modes label { white-space:nowrap; }
+  @media (max-width:640px) { .modes { display:flex; flex-wrap:nowrap; overflow-x:auto; width:100%; scrollbar-width:none; } .modes::-webkit-scrollbar { display:none; } .modes label { flex:none; font-size:13.5px; } .top-in { gap:8px; } .brand { font-size:17px; } .brand span { display:none; } .nav button { padding:7px 11px; font-size:13px; } .nav .ic::before { margin-right:.3em; } .brand small { display:none; } .modes label { padding:8px 11px; } .tools input[type=search] { width:100%; } main { padding-top:18px; } .card { padding:14px; border-radius:16px; } }
+  @media (prefers-reduced-motion:reduce) { *, *::before, *::after { animation:none !important; transition:none !important; } }
 </style>
 </head>
 <body>
+<header class="top"><div class="top-in">
+  <div class="brand"><img src="logo.svg" alt="" width="36" height="36"><span>TFDiagram</span><small>AWS · Azure</small></div>
+  <nav class="nav" id="pagenav" aria-label="Pages">
+    <span class="ind"></span>
+    <button type="button" data-page="diagram" class="on ic" style="--i:var(--i-flow)">Diagram</button>
+    <button type="button" data-page="ai" class="ic" style="--i:var(--i-sparkle)">Connect AI</button>
+  </nav>
+  <button type="button" id="themebtn" class="ic only" title="Theme: default" aria-label="Change theme"></button>
+  <select id="theme" aria-hidden="true" tabindex="-1"><option value="">Default</option><option value="dark">Dark</option><option value="light">Light</option></select>
+</div></header>
 <main>
-  <label id="themebox">Theme: <select id="theme"><option value="">Default</option><option value="dark">Dark</option><option value="light">Light</option></select></label>
-  <h1 class="brand"><img src="logo.svg" alt="" width="44" height="44"><span>TFDiagram</span></h1>
-  <p class="sub">Paste Terraform code or a GitHub repo URL (AWS or Azure) and get an architecture diagram.</p>
-  <div class="opts">
-    <label><input type="radio" name="mode" value="paste" checked> Paste code</label>
-    <label><input type="radio" name="mode" value="repo"> GitHub URL</label>
-    <label><input type="radio" name="mode" value="zip"> Upload zip</label>
-    <label><input type="radio" name="mode" value="search"> Search GitHub</label>
-    <label>Cloud:
-      <select id="provider"><option value="auto">Auto-detect</option><option value="aws">AWS</option><option value="azure">Azure</option></select>
-    </label>
+<section id="page-diagram" class="page">
+  <div class="hero">
+    <h1>See your Terraform as an <em>architecture</em></h1>
+    <p>Paste code, point at a GitHub repo or drop a zip. Get the cloud, VPC and subnets with the traffic flow and the security rules that allow it.</p>
+    <div class="chips"><span class="chip ic" style="--i:var(--i-arch)">AWS &amp; Azure</span><span class="chip ic" style="--i:var(--i-flow)">Traffic flow</span><span class="chip ic" style="--i:var(--i-check)">Security rules</span><span class="chip ic" style="--i:var(--i-plug)">Modules opened</span><span class="chip ic" style="--i:var(--i-sparkle)">Works with your AI</span></div>
   </div>
-  <form id="f">
-    <textarea id="code" rows="12" placeholder='resource "aws_vpc" "main" { ... }  (paste one or more .tf files)'></textarea>
-    <input type="text" id="repo" hidden placeholder="https://github.com/owner/repo or .../tree/main/infra">
-    <div id="searchbox" hidden>
-      <input type="search" id="sq" placeholder="Search Terraform repos (vpc, eks, landing zone, org:hashicorp ...) or leave empty for the popular ones">
-      <div class="opts" style="margin:8px 0 0">
-        <label>Sort: <select id="ssort"><option value="stars">Most stars</option><option value="updated">Recently updated</option><option value="best">Best match</option></select></label>
-        <label>Cloud: <select id="scloud"><option value="any">Any</option><option value="aws">AWS</option><option value="azure">Azure</option></select></label>
-        <label><input type="checkbox" id="shcl" checked> Only Terraform repos (language HCL)</label>
+
+  <div class="card" id="source">
+    <div class="modes" id="modes">
+      <span class="ind"></span>
+      <label class="ic" style="--i:var(--i-paste)"><input type="radio" name="mode" value="paste" checked>Paste code</label>
+      <label class="ic" style="--i:var(--i-github)"><input type="radio" name="mode" value="repo">GitHub URL</label>
+      <label class="ic" style="--i:var(--i-zip)"><input type="radio" name="mode" value="zip">Upload zip</label>
+      <label class="ic" style="--i:var(--i-search)"><input type="radio" name="mode" value="search">Search GitHub</label>
+    </div>
+    <form id="f">
+      <textarea id="code" rows="10" placeholder='resource "aws_vpc" "main" { ... }  (paste one or more .tf files)'></textarea>
+      <input type="text" id="repo" hidden placeholder="https://github.com/owner/repo or .../tree/main/infra">
+      <div id="searchbox" hidden>
+        <input type="search" id="sq" placeholder="Search Terraform repos (vpc, eks, landing zone, org:hashicorp ...) or leave empty for the popular ones">
+        <div class="optbar" style="margin-top:12px;padding-top:0;border:0">
+          <label class="f">Sort <select id="ssort"><option value="stars">Most stars</option><option value="updated">Recently updated</option><option value="best">Best match</option></select></label>
+          <label class="f">Cloud <select id="scloud"><option value="any">Any</option><option value="aws">AWS</option><option value="azure">Azure</option></select></label>
+          <label class="sw"><input type="checkbox" id="shcl" checked> Only Terraform repos (HCL)</label>
+        </div>
+        <p class="tag">Finds public repositories on GitHub. Press <b>Draw diagram</b> on a result to open it here. GitHub's search words work too, like <code>org:hashicorp</code> or <code>user:name</code>.</p>
+        <p id="sclearbar" hidden><button type="button" id="sclear" class="ic" style="--i:var(--i-x)">Clear search</button></p>
+        <div id="results"></div>
       </div>
-      <p class="tag">Finds public repositories on GitHub. Press <b>Draw diagram</b> on a result to open it here. Use GitHub's search words too, like <code>org:hashicorp</code> or <code>user:name</code>.</p>
-      <p id="sclearbar" hidden><button type="button" id="sclear">✕ Clear search</button></p>
-      <div id="results"></div>
+      <div id="zipbox" hidden>
+        <label id="zipdrop"><input type="file" id="zip" accept=".zip,application/zip,application/x-zip-compressed">
+          <b>Choose a .zip</b> or drop it here: a Terraform project, or a repo downloaded from GitHub (Code → Download ZIP).</label>
+        <label id="zipdirLabel" hidden>Folder to draw <select id="zipdir"></select></label>
+        <p class="tag" id="zipnote">The zip is opened in your browser. Only the text of the .tf files is sent to be analysed; nothing is stored.</p>
+      </div>
+      <button id="go">Generate</button>
+    </form>
+    <div class="optbar">
+      <label class="f ic" style="--i:var(--i-arch)">Cloud <select id="provider"><option value="auto">Auto-detect</option><option value="aws">AWS</option><option value="azure">Azure</option></select></label>
+      <button type="button" class="ghost ic" id="optbtn" style="--i:var(--i-sliders)" aria-expanded="false">More options</button>
     </div>
-    <div id="zipbox" hidden>
-      <label id="zipdrop"><input type="file" id="zip" accept=".zip,application/zip,application/x-zip-compressed">
-        <b>Choose a .zip</b> or drop it here: a Terraform project, or a repo downloaded from GitHub (Code → Download ZIP).</label>
-      <label id="zipdirLabel" hidden>Folder to draw: <select id="zipdir"></select></label>
-      <p class="tag" id="zipnote">The zip is opened in your browser. Only the text of the .tf files is sent to be analysed; nothing is stored.</p>
-    </div>
-    <button id="go">Generate</button>
-  </form>
-  <div class="opts">
-    <label><input type="checkbox" id="inactive"> Also show resources that are not created (count = 0)</label>
-    <label><input type="checkbox" id="simplify" checked> Hide plumbing (IAM attachments, SG rules, associations)</label>
-    <label id="tokenLabel" hidden>GitHub token (private repos): <input type="password" id="token" autocomplete="off" size="20"></label>
+    <div id="optpanel"><div><div class="inner">
+      <div style="display:flex;gap:18px;flex-wrap:wrap">
+        <label class="sw"><input type="checkbox" id="inactive"> Also show resources that are not created (count = 0)</label>
+        <label class="sw"><input type="checkbox" id="simplify" checked> Hide plumbing (IAM attachments, SG rules, associations)</label>
+      </div>
+      <label id="tokenLabel" hidden class="f" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;color:var(--muted);font-size:13.5px">GitHub token (private repos or fewer rate limits) <input type="password" id="token" autocomplete="off" size="26"></label>
+      <div id="varsbox"><div style="font-weight:700;margin-bottom:6px">Variable values <span class="tag" style="font-weight:400">(optional) like <code>environment = "prod"</code></span></div>
+        <textarea id="varvals" rows="3" spellcheck="false" placeholder='instance_count = 3&#10;enable_nat = true&#10;vpc_cidr = "10.20.0.0/16"'></textarea>
+        <p class="tag" style="margin:6px 0 0">One <code>name = value</code> per line, like a .tfvars file. Applied to the top-level module, overriding defaults and terraform.tfvars. Changing them redraws the diagram.</p></div>
+    </div></div></div>
   </div>
-  <details id="varsbox"><summary>Variable values (optional): set inputs like <code>environment = "prod"</code></summary>
-    <textarea id="varvals" rows="4" spellcheck="false" placeholder='instance_count = 3&#10;enable_nat = true&#10;vpc_cidr = "10.20.0.0/16"'></textarea>
-    <p class="tag">One <code>name = value</code> per line, the same syntax as a .tfvars file. They apply to the top-level module and override defaults and terraform.tfvars. Changing them redraws the diagram.</p></details>
-  <button type="button" id="tosearch" hidden>← Back to search results</button>
+
+  <button type="button" id="tosearch" class="ic" style="--i:var(--i-back)" hidden>Back to search results</button>
   <div id="status"></div>
-  <div id="result">
-  <label id="repodirLabel" hidden style="display:block;margin:6px 0;color:var(--muted);font-size:14px">Folder to draw: <select id="repodir" style="max-width:100%"></select></label>
-  <div id="checks" hidden></div><div id="stat" style="color:var(--muted);font-size:14px"></div>
-  <div id="view" hidden>
-    <div id="tabs" class="tabs"></div>
-    <div class="opts">
-      <input type="search" id="q" placeholder="Filter: name or type (e.g. subnet)" size="28">
-      <label>Module: <select id="scope"></select></label>
-      <label><input type="checkbox" id="collapse"> Collapse modules</label>
-      <label>Detail: <select id="detail"><option value="overview">Overview</option><option value="detailed">Every resource</option></select></label>
-      <label>Direction: <select id="dir"><option value="LR">Left to right</option><option value="TB">Top to bottom</option></select></label>
-      <label>Style: <select id="style"><option value="arch">Architecture</option><option value="cards">Cards</option></select></label>
-      <label id="animLabel"><input type="checkbox" id="anim" checked> Animate traffic</label>
-      <label><input type="checkbox" id="fit"> Fit to width</label>
-      <span id="zoombox" class="zoom"><button type="button" id="zout" title="Zoom out">−</button><button type="button" id="zreset" title="Back to 100%">100%</button><button type="button" id="zin" title="Zoom in">+</button></span>
-      <span id="expbox" class="zoom"><button type="button" id="dlsvg" title="Download the diagram as an SVG image">SVG ↓</button><button type="button" id="dlpng" title="Download the diagram as a PNG image">PNG ↓</button><button type="button" id="copylink" title="Copy a link that reopens this exact view">Copy link</button></span>
+  <div id="result" class="empty">
+    <label id="repodirLabel" hidden>Folder to draw <select id="repodir"></select></label>
+    <div id="checks" hidden></div><div id="stat"></div>
+    <div id="view" class="card" hidden>
+      <div id="tabs" class="tabs"></div>
+      <div class="tools">
+        <div class="group"><input type="search" id="q" placeholder="Filter by name or type"></div>
+        <div class="group ic" style="--i:var(--i-layers)"><select id="scope"></select></div>
+        <div class="group"><select id="style" class="segsrc" data-icons="arch,grid"><option value="arch">Architecture</option><option value="cards">Cards</option></select></div>
+        <div class="group"><select id="dir" class="segsrc" data-icons="ltr,ttb"><option value="LR">Left to right</option><option value="TB">Top to bottom</option></select></div>
+        <div class="group"><select id="detail" class="segsrc"><option value="overview">Overview</option><option value="detailed">Every resource</option></select></div>
+        <label class="sw" id="animLabel"><input type="checkbox" id="anim" checked> Animate traffic</label>
+        <label class="sw"><input type="checkbox" id="collapse"> Collapse modules</label>
+        <label class="sw"><input type="checkbox" id="fit"> Fit to width</label>
+        <span id="zoombox" class="zoom"><button type="button" id="zout" class="ic only" style="--i:var(--i-minus)" title="Zoom out"></button><button type="button" id="zreset" title="Back to 100%">100%</button><button type="button" id="zin" class="ic only" style="--i:var(--i-plus)" title="Zoom in"></button></span>
+        <span id="expbox" class="zoom"><button type="button" id="dlsvg" class="ic" style="--i:var(--i-download)" title="Download the diagram as an SVG image">SVG</button><button type="button" id="dlpng" class="ic" style="--i:var(--i-download)" title="Download the diagram as a PNG image">PNG</button><button type="button" id="copylink" class="ic" style="--i:var(--i-link)" title="Copy a link that reopens this exact view">Copy link</button></span>
+      </div>
     </div>
-  </div>
-  <div id="legend" class="legend"></div>
-  <div id="backbar" hidden><button type="button" id="back">← Back</button><span id="backlabel"></span></div>
-  <div id="out"></div>
-  <details id="allcode" hidden><summary>Terraform code</summary>
-    <p class="opts"><label>File: <select id="codefile"></select></label></p>
-    <pre id="codeview" class="code"></pre></details>
-  <details><summary>Mermaid source</summary><pre id="src"></pre></details>
+    <div id="legend" class="legend"></div>
+    <div id="backbar" hidden><button type="button" id="back" class="ic" style="--i:var(--i-back)">Back</button><span id="backlabel"></span></div>
+    <div id="out"></div>
+    <details class="fold" id="allcode" hidden><summary class="ic" style="--i:var(--i-code)">Terraform code</summary>
+      <p class="tag"><label>File <select id="codefile"></select></label></p>
+      <pre id="codeview" class="code"></pre></details>
+    <details class="fold"><summary class="ic" style="--i:var(--i-list)">Mermaid source</summary><pre id="src"></pre></details>
   </div>
   <div id="panel" hidden></div>
-  <details id="mcpbox" open><summary>Use with AI (MCP): connect TFDiagram to Claude or another AI app</summary>
-    <p>TFDiagram has an MCP server, so your own AI app can read a repo's architecture and answer questions, review it for risks or explain it. Your AI plan does the thinking; nothing is billed here.</p>
-    <p>Server URL: <code id="mcpurl"></code> <button type="button" id="mcpcopy" style="padding:3px 10px;font-size:13px">Copy</button></p>
-    <ul>
-      <li><b>Claude (web / desktop):</b> Settings → Connectors → Add custom connector → paste the URL.</li>
-      <li><b>Claude Code:</b> <code id="mcpcmd"></code></li>
-      <li>Then ask, for example: <i>"Analyse https://github.com/owner/repo with TFDiagram and tell me what is exposed to the internet."</i></li>
-    </ul>
-    <p class="tag">Tools: <code>analyze_terraform_repo</code>, <code>analyze_terraform_code</code>, <code>get_resource_code</code>. Public GitHub repos and pasted code only. The Terraform you send is processed here and not stored.</p></details>
-  <p id="iconNote" class="legend" hidden>AWS and Azure service icons are the property of Amazon Web Services and Microsoft and are shown unmodified, as supplied by them, to label diagrams. This tool is not affiliated with or endorsed by either company.</p>
+</section>
+
+<section id="page-ai" class="page" hidden>
+  <div class="hero">
+    <h1>Use TFDiagram from <em>your AI</em></h1>
+    <p>Connect this site as an MCP server. Your own AI app reads a repo's architecture, explains it and reviews it for risks. Your AI plan does the thinking; nothing is billed here.</p>
+  </div>
+  <div class="card">
+    <b class="ic" style="--i:var(--i-plug)">Server URL</b>
+    <div class="urlbox"><code id="mcpurl"></code><button type="button" class="ghost ic" id="mcpcopy" style="--i:var(--i-copy)">Copy</button></div>
+    <div class="steps">
+      <div class="step"><h3>Claude (web &amp; desktop)</h3><p>Settings → Connectors → <b>Add custom connector</b> → paste the URL above.</p></div>
+      <div class="step"><h3>Claude Code</h3><p>Run this in a terminal:</p><div class="urlbox" style="margin-bottom:0"><code id="mcpcmd"></code></div></div>
+      <div class="step"><h3>Ask away</h3><p>Name a repo and say what you want to know.</p></div>
+    </div>
+    <div class="quote">“Analyse https://github.com/owner/repo with TFDiagram and tell me what is exposed to the internet.”</div>
+    <b>Tools it gives your AI</b>
+    <div class="tools-list">
+      <div><b><code>analyze_terraform_repo</code></b><span>Resources by layer, connections, security group rules, findings and a diagram link for a public GitHub repo.</span></div>
+      <div><b><code>analyze_terraform_code</code></b><span>The same for Terraform you paste as text.</span></div>
+      <div><b><code>get_resource_code</code></b><span>The exact Terraform block of one resource, with file and line.</span></div>
+    </div>
+    <p class="tag" style="margin-bottom:0">Public GitHub repos and pasted code only. The Terraform you send is processed here and not stored.</p>
+  </div>
+</section>
+<div class="foot"><p id="iconNote" class="legend" hidden>AWS and Azure service icons are the property of Amazon Web Services and Microsoft and are shown unmodified, as supplied by them, to label diagrams. This tool is not affiliated with or endorsed by either company.</p></div>
 </main>
 <script src="vendor/dagre.min.js"></script>
 <script type="module">
@@ -159,12 +331,68 @@ import { COLORS, filterGraph, friendlyType, summarize, toMermaid } from './rende
 import { hasOfficialIcons, renderArchitecture, renderDiagram, setOfficialIcons } from './diagram.js';
 const $ = (id) => document.getElementById(id);
 let lastData = null;
+// ---- look and feel: theme button, page tabs, source tabs with a sliding indicator, option fold, segmented selects
+const THEMES = [['', 'auto', 'Theme: default (follows your system)'], ['dark', 'moon', 'Theme: dark'], ['light', 'sun', 'Theme: light']];
+function paintTheme() {
+  const t = THEMES.find(([v]) => v === $('theme').value) ?? THEMES[0];
+  $('themebtn').style.setProperty('--i', `var(--i-${t[1]})`); $('themebtn').title = t[2];
+}
 try { $('theme').value = localStorage.getItem('tfTheme') || ''; } catch {}
 $('theme').addEventListener('change', () => {
   const t = $('theme').value;
   if (t) document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme;
   try { localStorage.setItem('tfTheme', t); } catch {}
+  paintTheme();
 });
+$('themebtn').addEventListener('click', () => {
+  const i = THEMES.findIndex(([v]) => v === $('theme').value);
+  $('theme').value = THEMES[(i + 1) % THEMES.length][0];
+  $('theme').dispatchEvent(new Event('change'));
+});
+paintTheme();
+
+function slide(container, activeEl) {            // the pill behind the active tab glides to it
+  const ind = container.querySelector('.ind');
+  if (!ind || !activeEl) return;
+  ind.style.left = `${activeEl.offsetLeft}px`; ind.style.width = `${activeEl.offsetWidth}px`;
+}
+function paintModes() {
+  const labels = [...document.querySelectorAll('#modes label')];
+  labels.forEach((l) => l.classList.toggle('on', l.querySelector('input').checked));
+  const on = labels.find((l) => l.classList.contains('on'));
+  slide($('modes'), on);
+  on?.scrollIntoView?.({ inline: 'nearest', block: 'nearest' });
+}
+function showPage(name) {
+  document.querySelectorAll('.page').forEach((el) => { el.hidden = el.id !== `page-${name}`; });
+  const btns = [...document.querySelectorAll('#pagenav button')];
+  btns.forEach((b) => b.classList.toggle('on', b.dataset.page === name));
+  slide($('pagenav'), btns.find((b) => b.dataset.page === name));
+  if (name === 'diagram') paintModes();
+}
+document.querySelectorAll('#pagenav button').forEach((b) => b.addEventListener('click', () => { showPage(b.dataset.page); scrollTo({ top: 0, behavior: 'smooth' }); }));
+document.querySelectorAll('#modes input').forEach((i) => i.addEventListener('change', () => { paintModes(); if ($('status').className === 'err') { $('status').className = ''; $('status').textContent = ''; } }));
+$('optbtn').addEventListener('click', () => { const open = $('optpanel').classList.toggle('open'); $('optbtn').setAttribute('aria-expanded', open); $('optbtn').textContent = open ? 'Fewer options' : 'More options'; });
+addEventListener('resize', () => { showPage(document.querySelector('.page:not([hidden])').id.replace('page-', '')); });
+document.fonts?.ready.then(() => showPage('diagram'));
+// Dropdowns marked .segsrc are drawn as segmented buttons (the select stays as the source of truth)
+for (const sel of document.querySelectorAll('select.segsrc')) {
+  const icons = (sel.dataset.icons ?? '').split(',');
+  const seg = document.createElement('div'); seg.className = 'seg';
+  [...sel.options].forEach((o, i) => {
+    const b = document.createElement('button'); b.type = 'button'; b.textContent = o.textContent; b.dataset.v = o.value;
+    if (icons[i]) { b.classList.add('ic'); b.style.setProperty('--i', `var(--i-${icons[i]})`); }
+    b.addEventListener('click', () => { sel.value = o.value; sel.dispatchEvent(new Event('change')); });
+    seg.append(b);
+  });
+  sel.after(seg); sel.hidden = true;
+  const paint = () => seg.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.v === sel.value));
+  sel.addEventListener('change', paint);
+  new MutationObserver(paint).observe(sel, { attributes: true });
+  sel.syncSeg = paint; paint();
+}
+const syncSegs = () => document.querySelectorAll('select.segsrc').forEach((s) => s.syncSeg());
+
 // Search GitHub has two pages: the result list, and the diagram of the repo you pressed Draw on. Back returns to the list.
 let searchView = 'list';
 let listScroll = 0;
@@ -182,6 +410,7 @@ let layer = ''; // '' = all layers
 const mode = () => document.querySelector('input[name=mode]:checked').value;
 function syncMode() {
   const m = mode();
+  paintModes();
   $('code').hidden = m !== 'paste'; $('repo').hidden = m !== 'repo'; $('zipbox').hidden = m !== 'zip'; $('searchbox').hidden = m !== 'search';
   $('tokenLabel').hidden = m !== 'repo' && m !== 'search';
   $('go').textContent = m === 'search' ? 'Search' : 'Generate';
@@ -214,6 +443,8 @@ function buildControls() {
 }
 
 async function draw() {
+  syncSegs();
+  $('result').classList.toggle('empty', !lastData);
   if (!lastData) return;
   document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('on', b.dataset.layer === layer));
   const view = filterGraph(lastData.graph, {
@@ -662,6 +893,7 @@ if (q) {
   $('simplify').checked = params.get('simplify') !== '0';
   $('anim').checked = params.get('anim') !== '0';
   if (params.get('vars')) $('varvals').value = params.get('vars');
+  syncSegs();
   run().then(() => {                              // then the view inside the diagram: layer, filter, module, detail
     if (params.get('detail')) $('detail').value = params.get('detail');
     if (params.get('scope') && [...$('scope').options].some((o) => o.value === params.get('scope'))) $('scope').value = params.get('scope');
