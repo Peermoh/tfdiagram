@@ -318,7 +318,7 @@ function codeSection(n) {
 }
 const sourceLink = (n) => {
   const { owner, repo, branch } = lastData;
-  if (!owner || !n.file) return `${H(n.file ?? '')}${n.line ? `:${n.line}` : ''}`;
+  if (!owner || !n.file || n.file.startsWith('@')) return `${H(n.file ?? '')}${n.line ? `:${n.line}` : ''}`;
   const url = `https://github.com/${owner}/${repo}/blob/${branch}/${n.file.split('/').map(encodeURIComponent).join('/')}${n.line ? `#L${n.line}` : ''}`;
   return `<a href="${H(url)}" target="_blank" rel="noopener">${H(n.file)}${n.line ? `:${n.line}` : ''} ↗</a>`;
 };

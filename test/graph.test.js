@@ -1131,3 +1131,44 @@ test('architecture arrows say which security-group rule allows them', async () =
   assert.match(svg, /TCP 8080 from Security group alb/);   // load balancer -> instance
   assert.match(svg, /✗ no rule/);                      // instance -> database: db group allows nothing
 });
+
+test('registry modules: sources are classified, versions picked, and the module is opened', async () => {
+  const fs = await import('node:fs');
+  const { classifySource, pickVersion } = await import('../lib/registry.js');
+  assert.deepEqual(classifySource('terraform-aws-modules/vpc/aws//modules/x'), { type: 'registry', ns: 'terraform-aws-modules', name: 'vpc', provider: 'aws', subdir: 'modules/x' });
+  assert.deepEqual(classifySource('git::https://github.com/o/r.git//sub?ref=v1.2'), { type: 'github', owner: 'o', repo: 'r', subdir: 'sub', ref: 'v1.2' });
+  assert.equal(classifySource('./local'), null);
+  assert.equal(classifySource('hashicorp/consul/aws').type, 'registry');
+  const v = ['4.0.2', '5.0.0', '5.1.2', '5.8.1', '6.0.0'];
+  assert.equal(pickVersion(v, '~> 5.0'), '5.8.1');
+  assert.equal(pickVersion(v, '~> 5.1.0'), '5.1.2');
+  assert.equal(pickVersion(v, '>= 4.0, < 5.0'), '4.0.2');
+  assert.equal(pickVersion(v, '5.0.0'), '5.0.0');
+  assert.equal(pickVersion(v, undefined), '6.0.0');
+
+  const zip = fs.readFileSync(new URL('./fixtures/module.zip', import.meta.url));
+  const real = globalThis.fetch;
+  const asked = [];
+  globalThis.fetch = async (url) => {
+    url = String(url); asked.push(url);
+    if (url.includes('/acme/missing/')) return new Response('no', { status: 404 });
+    if (url.endsWith('/versions')) return new Response(JSON.stringify({ modules: [{ versions: [{ version: '1.0.0' }, { version: '1.2.0' }] }] }));
+    if (url.endsWith('/1.2.0/download')) return new Response(null, { status: 204, headers: { 'x-terraform-get': 'git::https://github.com/acme/terraform-aws-net?ref=v1.2.0' } });
+    if (url.includes('/zipball/')) return new Response(zip, { headers: { 'content-length': String(zip.length) } });
+    return new Response('no', { status: 404 });
+  };
+  try {
+    const { handleApi } = await import('../lib/api.js');
+    const code = 'module "net" {\n  source  = "acme/net/aws"\n  version = "~> 1.0"\n  cidr    = "10.9.0.0/16"\n}\nresource "aws_instance" "app" {\n  subnet_id = module.net.subnet_id\n}\nmodule "gone" {\n  source = "acme/missing/aws"\n}';
+    const res = await handleApi(new Request('http://x/api/diagram', { method: 'POST', body: JSON.stringify({ code }) }));
+    const data = await res.json();
+    assert.equal(res.status, 200);
+    const ids = data.graph.nodes.map((n) => n.id);
+    assert.ok(ids.includes('module.net.aws_vpc.this') && ids.includes('module.net.aws_subnet.a'), ids.join(', '));
+    assert.ok(!ids.some((i) => /noise/.test(i)));                                     // examples/ is skipped
+    assert.deepEqual(data.graph.nodes.find((n) => n.id === 'module.net.aws_vpc.this').cidrs, ['10.9.0.0/16']);   // the caller's value wins
+    assert.ok(asked.some((u) => u.includes('/zipball/v1.2.0')));
+    assert.ok(data.checks.some((c) => /Opened 1 module from the Terraform registry/.test(c.text)), JSON.stringify(data.checks));
+    assert.ok(data.checks.some((c) => /could not be opened \(acme\/missing\/aws\)/.test(c.text)));
+  } finally { globalThis.fetch = real; }
+});

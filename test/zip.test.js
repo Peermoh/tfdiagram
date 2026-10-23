@@ -78,7 +78,7 @@ test('checks: nothing to draw, other providers, mixed clouds, remote modules, un
   assert.ok(lv(mixed, 'warn').some((t) => /Both AWS and Azure/.test(t)));
 
   const mods = await post([{ path: 'r.tf', content: 'module "vpc" {\n  source  = "terraform-aws-modules/vpc/aws"\n  version = "5.0.0"\n}\nresource "aws_instance" "i" {\n  instance_type = var.size\n  ami = var.ami\n}' }]);
-  assert.ok(lv(mods, 'info').some((t) => /come from a registry or git \(terraform-aws-modules\/vpc\/aws\)/.test(t)));
+  assert.ok(lv(mods, 'info').some((t) => /could not be opened \(terraform-aws-modules\/vpc\/aws\)/.test(t)));
   assert.ok(lv(mods, 'info').some((t) => /2 variables used here have no default.*ami, size/.test(t)));
 });
 
