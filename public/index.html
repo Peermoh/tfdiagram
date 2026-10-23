@@ -42,6 +42,7 @@
   --i-x:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M6 6l12 12M18 6L6 18%22/%3E%3C/svg%3E");
   --i-back:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M19 12H5M11 6l-6 6 6 6%22/%3E%3C/svg%3E");
   --i-list:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01%22/%3E%3C/svg%3E");
+  --i-lock:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 11h14v9H5zM8 11V8a4 4 0 0 1 8 0v3'/%3E%3C/svg%3E");
   --i-key:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M8 15a4 4 0 1 1 3.9-4.9H21v3h-3v3h-3v-3h-3.1A4 4 0 0 1 8 15z%22/%3E%3C/svg%3E");
   }
   @media (prefers-color-scheme: dark) { :root:not([data-theme=light]) { --bg:#0d0f1a; --fg:#e8eaf6; --muted:#98a0b8; --line:#262a3d; --card:#151828; --card2:#1a1e31; --accent:#9d85ff; --accent2:#c084fc; --accent-soft:rgba(157,133,255,.14); --edge:#94a3b8; --link:#a5b4fc; --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 28px rgba(0,0,0,.35); --ring:0 0 0 3px rgba(157,133,255,.3); --grid:rgba(255,255,255,.06); color-scheme:dark; } }
@@ -88,6 +89,7 @@
   .modes { position:relative; display:inline-flex; flex-wrap:wrap; gap:2px; padding:4px; background:var(--card2); border:1px solid var(--line); border-radius:999px; margin-bottom:14px; max-width:100%; }
   .modes label { position:relative; z-index:1; display:inline-flex; align-items:center; padding:8px 14px; border-radius:999px; font-weight:600; font-size:14px; color:var(--muted); cursor:pointer; transition:color .2s; user-select:none; }
   .modes label.on { color:#fff; }
+  .modes label[hidden] { display:none; }
   .modes input { position:absolute; opacity:0; pointer-events:none; }
   .modes .ind { top:4px; bottom:4px; }
   form { display:flex; gap:10px; flex-wrap:wrap; align-items:flex-start; }
@@ -124,7 +126,7 @@
   .tag { color:var(--muted); font-size:13px; }
 
   /* search + zip */
-  #searchbox, #zipbox { flex:1 1 100%; }
+  #searchbox, #zipbox, #localbox { flex:1 1 100%; } #lrepo { width:100%; }
   #sq { width:100%; font-size:15px; padding:13px 14px 13px 42px; background:var(--card2) var(--i-search) 14px center/18px no-repeat; }
   .hit { background:var(--card2); border:1px solid var(--line); border-radius:14px; padding:14px 16px; margin:10px 0; transition:transform .18s, box-shadow .18s, border-color .18s; animation:rise .3s both; }
   .hit:hover { transform:translateY(-2px); box-shadow:var(--shadow); border-color:var(--accent); }
@@ -232,6 +234,7 @@
       <label class="ic" style="--i:var(--i-github)"><input type="radio" name="mode" value="repo">GitHub URL</label>
       <label class="ic" style="--i:var(--i-zip)"><input type="radio" name="mode" value="zip">Upload zip</label>
       <label class="ic" style="--i:var(--i-search)"><input type="radio" name="mode" value="search">Search GitHub</label>
+      <label class="ic" id="localTab" hidden style="--i:var(--i-lock)"><input type="radio" name="mode" value="local">Private Git (this computer)</label>
     </div>
     <form id="f">
       <textarea id="code" rows="10" placeholder='resource "aws_vpc" "main" { ... }  (paste one or more .tf files)'></textarea>
@@ -250,13 +253,17 @@
       <div id="zipbox" hidden>
         <label id="zipdrop"><input type="file" id="zip" accept=".zip,application/zip,application/x-zip-compressed">
           <b>Choose a .zip</b> or drop it here: a Terraform project, or a repo downloaded from GitHub (Code → Download ZIP).</label>
-        <label id="zipdirLabel" hidden>Folder to draw <select id="zipdir"></select></label>
         <p class="tag">No zip handy? Download a sample, then drop it above:
           <a href="samples/aws-three-tier.zip" download>AWS three-tier</a> ·
           <a href="samples/azure-web-stack.zip" download>Azure web stack</a> ·
           <a href="samples/multi-environment.zip" download>Multiple environments</a> (pick “All folders”) ·
           <a href="samples/stack-pattern.zip" download>stack.json pattern</a></p>
         <p class="tag" id="zipnote">The zip is opened in your browser. Only the text of the .tf files is sent to be analysed; nothing is stored.</p>
+      </div>
+      <div id="localbox" hidden>
+        <input type="text" id="lrepo" placeholder="https://dev.azure.com/org/project/_git/repo  (or any https / ssh Git URL)">
+        <p class="tag">Runs on this computer only. It reads the repository with the <b>git installed here</b>, so whatever you are already signed in with (Git Credential Manager, SSH keys, your company single sign-on) is used. If a sign-in window opens, complete it once. Branch and folder links work: <code>…?path=/dev&amp;version=GBmain</code>.</p>
+        <label class="f" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;color:var(--muted);font-size:13.5px">Azure DevOps token (optional) <input type="password" id="lpat" autocomplete="off" size="26"><span class="tag">only if git is not signed in; needs Code: Read; used for this request, never stored</span></label>
       </div>
       <button id="go">Generate</button>
     </form>
@@ -277,6 +284,7 @@
     </div></div></div>
   </div>
 
+  <label id="zipdirLabel" hidden>Folder to draw <select id="zipdir"></select></label>
   <button type="button" id="tosearch" class="ic" style="--i:var(--i-back)" hidden>Back to search results</button>
   <div id="status"></div>
   <div id="result" class="empty">
@@ -431,10 +439,11 @@ const mode = () => document.querySelector('input[name=mode]:checked').value;
 function syncMode() {
   const m = mode();
   paintModes();
-  $('code').hidden = m !== 'paste'; $('repo').hidden = m !== 'repo'; $('zipbox').hidden = m !== 'zip'; $('searchbox').hidden = m !== 'search';
+  $('code').hidden = m !== 'paste'; $('repo').hidden = m !== 'repo'; $('zipbox').hidden = m !== 'zip'; $('searchbox').hidden = m !== 'search'; $('localbox').hidden = m !== 'local';
+  if (m !== 'zip' && m !== 'local') $('zipdirLabel').hidden = true; else if ($('zipdir').options.length > 1) $('zipdirLabel').hidden = false;
   $('tokenLabel').hidden = m !== 'repo' && m !== 'search';
   $('go').textContent = m === 'search' ? 'Search' : 'Generate';
-  $('code').required = m === 'paste'; $('repo').required = m === 'repo';
+  $('code').required = m === 'paste'; $('repo').required = m === 'repo'; $('lrepo').required = m === 'local';
   if (m !== 'search') searchView = 'list';
   applyView();
 }
@@ -521,6 +530,7 @@ $('mcpcopy').addEventListener('click', async () => { try { await navigator.clipb
 // ---- Share link: the repo plus the view (style, layer, folder, filters...) in the address
 let pendingRoot = '';
 let pendingVarfile = '';
+let pendingLocalRoot = '';
 function shareUrl() {
   const u = new URLSearchParams();
   const repoMode = document.querySelector('input[name=mode]:checked').value === 'repo';
@@ -853,7 +863,7 @@ async function loadZip(file) {
   try {
     const { files, skipped, ignored } = await unzipTerraform(await file.arrayBuffer());
     if (!files.length) throw new Error(`No .tf files found in that zip${ignored.tfjson ? ` (it has ${ignored.tfjson} .tf.json files, which are not supported)` : ''}`);
-    zipFiles = files;
+    zipFiles = files; pendingLocalRoot = '';
     zipIgnored = { ...ignored, skipped: skipped.length };
     $('zipdir').replaceChildren();               // the server proposes the folder on the first run
     $('varfile').replaceChildren(); $('varfileLabel').hidden = true;
@@ -876,7 +886,7 @@ $('zipdrop').addEventListener('drop', (e) => { e.preventDefault(); const f = e.d
 
 async function run() {
   const mine = ++runSeq;
-  const m = mode() === 'search' ? 'repo' : mode();          // drawing from the search results is a GitHub-repo run; the radio stays on Search
+  const m = mode() === 'search' ? 'repo' : mode() === 'local' ? 'zip' : mode();          // drawing from the search results is a GitHub-repo run; the radio stays on Search
   if (m === 'zip' && !zipFiles) { $('status').className = 'err'; $('status').textContent = 'Choose a .zip first'; return; }
   $('go').disabled = true; $('status').className = ''; $('status').textContent = m === 'repo' ? 'Fetching Terraform files…' : 'Parsing…';
   try {
@@ -884,7 +894,7 @@ async function run() {
     const res = m === 'paste'
       ? await fetch(`/api/diagram?${qs}`, { method: 'POST', body: JSON.stringify({ code: $('code').value, vars: $('varvals').value }) })
       : m === 'zip'
-      ? await fetch(`/api/diagram?${qs}`, { method: 'POST', body: JSON.stringify({ files: zipFiles, vars: $('varvals').value, varfile: $('varfile').value, ignored: zipIgnored, root: $('zipdir').options.length ? $('zipdir').value : undefined }) })
+      ? await fetch(`/api/diagram?${qs}`, { method: 'POST', body: JSON.stringify({ files: zipFiles, vars: $('varvals').value, varfile: $('varfile').value, ignored: zipIgnored, root: $('zipdir').options.length ? $('zipdir').value : (pendingLocalRoot || undefined) }) })
       : await fetch(`/api/diagram?repo=${encodeURIComponent($('repo').value)}${$('repodir').options.length && repoDirFor === $('repo').value ? `&root=${encodeURIComponent($('repodir').value)}` : pendingRoot ? `&root=${encodeURIComponent(pendingRoot)}` : ''}&${qs}`, { headers: $('token').value ? { 'x-github-token': $('token').value } : {} });
     const data = await res.json();
     if (mine !== runSeq) return;                      // you went Back while it was loading
@@ -931,7 +941,29 @@ async function run() {
     $('checks').hidden = true;
   } finally { $('go').disabled = false; }
 }
-$('f').addEventListener('submit', (e) => { e.preventDefault(); if (mode() === 'search') search(1); else run(); });
+// Private Git (local only): the local server reads the repo with this computer's git, then it is drawn exactly like an uploaded zip
+async function fetchLocal() {
+  $('go').disabled = true; $('status').className = ''; $('status').textContent = 'Reading the repository with git on this computer… (a sign-in window may open)';
+  try {
+    const res = await fetch('/api/local/fetch', { method: 'POST', body: JSON.stringify({ url: $('lrepo').value.trim(), pat: $('lpat').value }) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    if (!data.files.length) throw new Error('No Terraform, tfvars or stack.json files were found in that repository.');
+    zipFiles = data.files; zipIgnored = {}; pendingLocalRoot = data.root ?? '';
+    $('zipdir').replaceChildren(); $('zipdirLabel').hidden = true; $('varfile').replaceChildren(); $('varfileLabel').hidden = true;
+    $('go').disabled = false;
+    await run();
+    $('status').textContent = `${data.name} (${data.via}): ${$('status').textContent}`;
+  } catch (e) { $('status').className = 'err'; $('status').textContent = e.message; $('go').disabled = false; }
+}
+$('f').addEventListener('submit', (e) => { e.preventDefault(); if (mode() === 'search') search(1); else if (mode() === 'local') fetchLocal(); else run(); });
+// the private-repository tab exists only when the page is served from this computer (server.js), never on the public site
+fetch('/api/local').then((r) => (r.ok ? r.json() : null)).catch(() => null).then((info) => {
+  if (!info?.local) return;
+  $('localTab').hidden = false;
+  if (!info.git) $('localTab').title = 'git was not found on this computer: use an Azure DevOps token, or upload a zip';
+  paintModes();
+});
 const params = new URLSearchParams(location.search);
 const q = params.get('repo');
 if (q) {

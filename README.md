@@ -65,6 +65,14 @@ Optional: `PORT=8080 npm start`; `GITHUB_TOKEN=... npm start` for private repos 
 - **Upload zip**: choose or drop a `.zip` (or GitHub's Code > Download ZIP). It is opened in the browser
   (`public/unzip.js`); only the `.tf` text and `terraform.tfvars` / `*.auto.tfvars` are sent for analysis. Samples to try
   are in `public/samples/` and linked on the page.
+- **Private Git (this computer)**: shown only when the page is served by your own `npm start` (the public site never has it, and
+  the Worker has no such endpoint). Paste an Azure DevOps link (`https://dev.azure.com/org/project/_git/repo`, with optional
+  `?path=/dev&version=GBbranch`) or any https / ssh Git URL. The local server reads it with the **git installed on this computer**, so
+  whatever you are already signed in with (Git Credential Manager, SSH keys, company single sign-on) is used, and a sign-in
+  window may open once. For Azure DevOps you can instead give a personal access token (Code: Read), used for that request only.
+  It then draws like an uploaded zip (folder picker, tfvars, `stack.json`). The server listens on `127.0.0.1` only and these
+  endpoints refuse non-local requests; `TFDIAGRAM_LOCAL=0` turns them off, `HOST=...` changes where it listens (at your own risk).
+  See `lib/localgit.js`, `lib/ado.js`. It cannot reuse a browser tab's login: a page on localhost cannot read your Azure DevOps cookies.
 - **Search GitHub**: finds public Terraform repos (`/api/search`; sort, AWS/Azure filter, `org:` qualifiers work).
   Empty search shows the most popular ones. About 10 searches a minute without a token.
 
