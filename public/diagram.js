@@ -277,8 +277,8 @@ ${badge}
 const NET = /(^|_)(vpc|virtual_network)$/;
 const SUBNET = /(^|_)subnet$/;
 const HIDDEN = /security_group|network_acl|route_table|dhcp|(^aws_route$)|_route$|_association|flow_log|iam_|_policy|role_assignment|user_assigned_identity|subnet_group|kms_|key_vault_|lb_listener|lb_target_group|lb_backend|lb_probe|lb_rule|lb_nat|alb_|lb_cookie|vpc_endpoint_|network_interface|(^aws_eip)|_attachment$|_ssm_|cloudwatch_log|monitor_|diagnostic/;
-const LB_PLUMBING = /lb_listener|lb_target_group|alb_|lb_backend|lb_probe|lb_rule|lb_nat|_attachment$/;
-const EDGE_TYPES = /(^aws_(lb|alb|elb)$|cloudfront|api_gateway|apigateway|front_door|application_gateway|route53_zone|cdn_endpoint|(^azurerm_lb$)|lb$)/;
+const LB_PLUMBING = /network_interface|lb_listener|lb_target_group|alb_|lb_backend|lb_probe|lb_rule|lb_nat|_attachment$/;
+const EDGE_TYPES = /(^aws_(lb|alb|elb)$|azurerm_public_ip|cloudfront|api_gateway|apigateway|front_door|application_gateway|route53_zone|cdn_endpoint|(^azurerm_lb$)|lb$)/;
 const DATA_TYPES = /db_instance|rds_|dynamodb|elasticache|redis|s3_bucket|efs_|ebs_|mssql|sql_|cosmos|storage_account|postgresql|mysql|docdb|redshift|opensearch|elasticsearch|kinesis|sqs_|sns_|servicebus|eventhub|managed_disk|storage_/;
 const klass = (t) => (EDGE_TYPES.test(t) ? 0 : DATA_TYPES.test(t) ? 2 : 1);
 const ARCH = { cloud: '#5b6b7f', vpc: '#8c4fff', public: '#7aa116', private: '#147eba', plain: '#6b7a8c', azure: '#0078d4', flow: '#e8710a' };
@@ -315,7 +315,7 @@ export function renderArchitecture(graph, { animate = true, direction = 'LR' } =
   const subHome = new Map(subs.map((s) => [s.id, [...(out.get(s.id) ?? [])].find((t) => netIds.has(t)) ?? null]));
 
   const g = new dagre.graphlib.Graph({ compound: true });
-  g.setGraph({ rankdir: lr ? 'LR' : 'TB', nodesep: 46, ranksep: 70, edgesep: 16, marginx: 24, marginy: 24 });
+  g.setGraph({ rankdir: lr ? 'LR' : 'TB', nodesep: 84, ranksep: 70, edgesep: 16, marginx: 24, marginy: 24 });
   g.setDefaultEdgeLabel(() => ({}));
   const cloud = { label: azure ? 'Azure' : 'AWS Cloud', color: azure ? ARCH.azure : ARCH.cloud, kind: 'cloud' };
   g.setNode('#cloud', { cloud });
@@ -344,7 +344,7 @@ export function renderArchitecture(graph, { animate = true, direction = 'LR' } =
   }
   const hiddenCount = tiles.filter((n) => hidden(n) && !netIds.has(n.id) && !subIds.has(n.id)).length;
   for (const t of tileNodes.values()) {
-    g.setNode(t.id, { width: TW, height: TH, tile: t });
+    g.setNode(t.id, { width: TW + 36, height: TH + 44, tile: t });          // padded cell: the boxes around it get room for their border and title
     g.setParent(t.id, g.hasNode(t.box) ? t.box : '#cloud');
   }
 

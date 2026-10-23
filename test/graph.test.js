@@ -1229,3 +1229,10 @@ test('MCP server: initialize, list tools, analyse pasted code, fetch a resource 
   assert.equal(bad.json.result.isError, true);
   assert.equal((await handleMcp(new Request('https://t.example/mcp'))).status, 405);
 });
+
+test('count.index ranges: one CIDR per copy, also when the base comes through a module argument', () => {
+  const sub = 'variable "vpc_cidr" { default = "10.0.0.0/16" }\nvariable "azs" {\n  default = ["a", "b"]\n}\nresource "aws_subnet" "p" {\n  count      = length(var.azs)\n  cidr_block = cidrsubnet(var.vpc_cidr, 8, count.index + 10)\n}';
+  assert.deepEqual(buildGraph([{ path: 'a.tf', content: sub }]).nodes[0].cidrs, ['10.0.10.0/24', '10.0.11.0/24']);
+  const tree = { dir: '', files: [{ path: 'm.tf', content: 'variable "vpc_cidr" { default = "10.9.0.0/16" }\nmodule "n" {\n  source = "./n"\n  vpc_cidr = var.vpc_cidr\n}' }], children: { n: { dir: 'n', files: [{ path: 'n/m.tf', content: sub }], children: {} } } };
+  assert.deepEqual(buildGraph(tree).nodes.find((n) => n.type === 'aws_subnet').cidrs, ['10.9.10.0/24', '10.9.11.0/24']);
+});

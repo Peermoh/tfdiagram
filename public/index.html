@@ -247,6 +247,10 @@
         <label id="zipdrop"><input type="file" id="zip" accept=".zip,application/zip,application/x-zip-compressed">
           <b>Choose a .zip</b> or drop it here: a Terraform project, or a repo downloaded from GitHub (Code → Download ZIP).</label>
         <label id="zipdirLabel" hidden>Folder to draw <select id="zipdir"></select></label>
+        <p class="tag">No zip handy? Download a sample, then drop it above:
+          <a href="samples/aws-three-tier.zip" download>AWS three-tier</a> ·
+          <a href="samples/azure-web-stack.zip" download>Azure web stack</a> ·
+          <a href="samples/multi-environment.zip" download>Multiple environments</a> (pick “All folders”)</p>
         <p class="tag" id="zipnote">The zip is opened in your browser. Only the text of the .tf files is sent to be analysed; nothing is stored.</p>
       </div>
       <button id="go">Generate</button>
