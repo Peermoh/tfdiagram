@@ -168,6 +168,8 @@
   .legend b { color:var(--fg); font-weight:600; }
   #out { overflow-anchor:none; border:1px solid var(--line); border-radius:18px; padding:16px; overflow:auto; min-height:90px; background:radial-gradient(var(--grid) 1px, transparent 1px) 0 0/22px 22px, var(--card); box-shadow:var(--shadow); }
   #out svg { animation:rise .4s both; }
+  html.scrolling .flow { animation-play-state:paused !important; }   /* no animation work while the page is being scrolled */
+  #out { -webkit-overflow-scrolling:touch; overscroll-behavior-x:contain; }
   #backbar { position:sticky; top:62px; z-index:8; display:flex; align-items:center; gap:12px; padding:8px 0; background:var(--bg); }
   #backbar[hidden] { display:none; } #backlabel { color:var(--muted); font-size:14px; }
   details.fold { margin-top:14px; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:4px 16px; box-shadow:var(--shadow); }
@@ -336,6 +338,15 @@ import { COLORS, filterGraph, friendlyType, summarize, toMermaid } from './rende
 import { hasOfficialIcons, renderArchitecture, renderDiagram, setOfficialIcons } from './diagram.js';
 const $ = (id) => document.getElementById(id);
 let lastData = null;
+// Scrolling on a phone stutters when a large diagram keeps animating, so the arrows pause while the page moves.
+let scrollTimer = 0;
+addEventListener('scroll', () => {
+  document.documentElement.classList.add('scrolling');
+  clearTimeout(scrollTimer);
+  scrollTimer = setTimeout(() => document.documentElement.classList.remove('scrolling'), 160);
+}, { passive: true, capture: true });
+let animTouched = false;      // a big diagram starts with the animation off, until the person decides
+
 // ---- look and feel: theme button, page tabs, source tabs with a sliding indicator, option fold, segmented selects
 const THEMES = [['', 'auto', 'Theme: default (follows your system)'], ['dark', 'moon', 'Theme: dark'], ['light', 'sun', 'Theme: light']];
 function paintTheme() {
@@ -349,6 +360,7 @@ $('theme').addEventListener('change', () => {
   try { localStorage.setItem('tfTheme', t); } catch {}
   paintTheme();
 });
+$('anim').addEventListener('change', () => { animTouched = true; });
 $('themebtn').addEventListener('click', () => {
   const i = THEMES.findIndex(([v]) => v === $('theme').value);
   $('theme').value = THEMES[(i + 1) % THEMES.length][0];
@@ -466,6 +478,7 @@ async function draw() {
   shownEdges = layer || $('q').value ? null : shownGraph.edges; // null = filtered view, so a missing arrow proves nothing
   drawLegend(shownGraph);
   try {
+    if (!animTouched && view.edges.length > 60) $('anim').checked = false;
     const arch = $('style').value === 'arch';
     if (arch) { shownNodes = new Map(view.nodes.map((n) => [n.id, n])); shownEdges = layer || $('q').value ? null : view.edges; }   // tiles stand for single resources, so details open per resource
     if (arch) $('legend').innerHTML = '<span class="k"><b style="color:#e8710a">orange dashed arrows</b> traffic flow: from the internet and load balancers, through compute, to data stores (inferred from references in the code)</span><span class="k"><b>boxes</b> AWS Cloud / Azure, then VPC / virtual network, then subnet; green = public, blue = private (by name)</span><span class="k"><b>pill on an arrow</b> the security-group rule that lets the traffic in (hover for the rule): <b style="color:#16a34a">green</b> = allowed by the group or a CIDR, <b style="color:#d97706">amber</b> = open to the whole internet, <b style="color:#dc2626">✗ red</b> = no rule found</span><span class="k"><b>×N</b> several of that resource; click an icon for details</span>';
