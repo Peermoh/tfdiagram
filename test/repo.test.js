@@ -103,3 +103,16 @@ test('repo map: README HTML is stripped, and a repository with no code is descri
   assert.match(m.explanation.join(' '), /holds no source code/);
   assert.match(m.explanation.join(' '), /main sections: Contents, Platforms/);
 });
+
+test('repo file endpoint rejects traversal and returns text', async () => {
+  const { handleRepoFile } = await import('../lib/repoapi.js');
+  const bad = await handleRepoFile(new Request('http://x/api/repo/file?repo=https://github.com/a/b&path=../etc/passwd'));
+  assert.equal(bad.status, 400);
+  const orig = globalThis.fetch;
+  globalThis.fetch = async (u) => (String(u).includes('raw.githubusercontent.com/a/b/') ? new Response('hello\nworld') : new Response('', { status: 404 }));
+  try {
+    const ok = await handleRepoFile(new Request('http://x/api/repo/file?repo=https://github.com/a/b&path=src/a.js'));
+    assert.equal(ok.status, 200);
+    assert.equal((await ok.json()).content, 'hello\nworld');
+  } finally { globalThis.fetch = orig; }
+});

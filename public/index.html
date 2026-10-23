@@ -44,6 +44,8 @@
   --i-list:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01%22/%3E%3C/svg%3E");
   --i-lock:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 11h14v9H5zM8 11V8a4 4 0 0 1 8 0v3'/%3E%3C/svg%3E");
   --i-table:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 5h16v14H4zM4 10h16M4 15h16M10 5v14'/%3E%3C/svg%3E");
+  --i-folder:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 6h6l2 2h10v11H3z'/%3E%3C/svg%3E");
+  --i-file:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 3h8l4 4v14H6zM14 3v4h4'/%3E%3C/svg%3E");
   --i-key:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M8 15a4 4 0 1 1 3.9-4.9H21v3h-3v3h-3v-3h-3.1A4 4 0 0 1 8 15z%22/%3E%3C/svg%3E");
   }
   @media (prefers-color-scheme: dark) { :root:not([data-theme=light]) { --bg:#0d0f1a; --fg:#e8eaf6; --muted:#98a0b8; --line:#262a3d; --card:#151828; --card2:#1a1e31; --accent:#9d85ff; --accent2:#c084fc; --accent-soft:rgba(157,133,255,.14); --edge:#94a3b8; --link:#a5b4fc; --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 28px rgba(0,0,0,.35); --ring:0 0 0 3px rgba(157,133,255,.3); --grid:rgba(255,255,255,.06); color-scheme:dark; } }
@@ -186,6 +188,16 @@
   .xstats { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; } .xstats .chip b { color:var(--fg); }
   #xpartsbody, #xstackbody, #invbody { overflow-x:auto; } table.xt { border-collapse:collapse; width:100%; font-size:13.5px; margin:8px 0 14px; } table.xt th, table.xt td { text-align:left; padding:6px 10px 6px 0; border-bottom:1px solid var(--line); vertical-align:top; } table.xt th { color:var(--muted); font-size:11.5px; text-transform:uppercase; letter-spacing:.05em; }
   tr.invgroup td { background:var(--card2); padding-top:8px; } .statechip { display:inline-block; padding:1px 9px; border-radius:999px; font-size:12px; font-weight:600; background:var(--accent-soft); color:var(--accent); } .statechip.ok { background:rgba(22,163,74,.12); color:var(--good); } .statechip.warn { background:rgba(217,119,6,.14); color:var(--warn); } .statechip.off { background:rgba(100,116,139,.15); color:var(--muted); }
+  .browser { display:grid; grid-template-columns:minmax(220px,300px) 1fr; gap:14px; align-items:start; }
+  .bpane .treebox { margin-top:8px; max-height:560px; overflow:auto; border:1px solid var(--line); border-radius:12px; padding:6px; background:var(--card2); font-size:13px; }
+  .treebox details { margin:0; background:none; border:0; box-shadow:none; padding:0; } .treebox summary { cursor:pointer; padding:3px 6px; border-radius:6px; list-style:none; display:flex; align-items:center; gap:6px; color:var(--fg); font-weight:600; } .treebox summary::-webkit-details-marker { display:none; } .treebox summary::after { display:none; }
+  .treebox summary:hover, .treebox .f:hover { background:var(--accent-soft); } .treebox .kids { margin-left:12px; border-left:1px dashed var(--line); padding-left:4px; }
+  .treebox .f { display:flex; align-items:center; gap:6px; padding:3px 6px; border-radius:6px; cursor:pointer; color:var(--muted); word-break:break-all; } .treebox .f.on { background:var(--accent-soft); color:var(--accent); font-weight:600; } .treebox .f small { margin-left:auto; color:var(--muted); opacity:.7; font-size:11px; white-space:nowrap; }
+  .treebox summary::before, .treebox .f::before { content:''; flex:none; width:14px; height:14px; background:currentColor; -webkit-mask:var(--i-file) center/contain no-repeat; mask:var(--i-file) center/contain no-repeat; opacity:.75; } .treebox summary::before { -webkit-mask-image:var(--i-folder); mask-image:var(--i-folder); color:var(--accent); }
+  .vhead [hidden] { display:none !important; }
+  .vpane { min-width:0; } .vhead { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:8px; } .vhead .grow { flex:1; } .vhead code { word-break:break-all; }
+  .viewer { border:1px solid var(--line); border-radius:12px; background:var(--card2); max-height:620px; overflow:auto; padding:10px 14px; min-height:120px; } .viewer pre.code { border:0; background:none; padding:0; max-height:none; } .viewer .prose { font-size:14.5px; }
+  @media (max-width:760px) { .browser { grid-template-columns:1fr; } .bpane .treebox { max-height:240px; } }
   .kindtag { display:inline-block; padding:1px 9px; border-radius:999px; font-size:12px; font-weight:600; background:var(--accent-soft); color:var(--accent); }
   details.fold { margin-top:14px; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:4px 16px; box-shadow:var(--shadow); }
   details.fold > summary { cursor:pointer; padding:10px 0; font-weight:700; list-style:none; display:flex; align-items:center; } details.fold > summary::-webkit-details-marker { display:none; }
@@ -403,6 +415,19 @@
         <button type="button" id="xaigo" class="ghost ic" style="--i:var(--i-sparkle)">Explain with AI</button>
       </div>
       <div id="xaistatus" class="tag" style="margin-top:8px"></div>
+    </div>
+    <div class="card" id="xbrowse">
+      <div class="xhead"><b class="ic" style="--i:var(--i-folder)">Browse the repository</b><span class="grow"></span><span class="tag" id="xbrowsenote"></span><a id="xgh" href="#" target="_blank" rel="noopener" class="ghost" hidden>Open on GitHub ↗</a></div>
+      <div class="browser">
+        <div class="bpane">
+          <input type="search" id="xfq" placeholder="Filter files" style="width:100%;padding:7px 12px 7px 34px;background:var(--card2) var(--i-filter) 11px center/16px no-repeat">
+          <div id="xtreebox" class="treebox"></div>
+        </div>
+        <div class="vpane">
+          <div class="vhead"><code id="xvpath">Choose a file</code><span class="grow"></span><span class="seg" id="xvmode" hidden><button type="button" data-v="rendered" class="on">Rendered</button><button type="button" data-v="raw">Raw</button></span><button type="button" id="xvcopy" class="ghost" hidden>Copy</button></div>
+          <div id="xviewer" class="viewer"><p class="tag">Pick a file on the left. Only text files are listed; images and other binaries are left out.</p></div>
+        </div>
+      </div>
     </div>
     <details class="fold" id="xparts"><summary class="ic" style="--i:var(--i-layers)">Parts of the code and how they depend on each other</summary><div id="xpartsbody"></div></details>
     <details class="fold" id="xstack"><summary class="ic" style="--i:var(--i-grid)">Technologies, entry points and infrastructure</summary><div id="xstackbody"></div></details>
@@ -708,7 +733,7 @@ function showExplain(d) {
   $('xexplain').innerHTML = m.explanation.map((p) => `<p>${HX(p)}</p>`).join('') + (run ? `<h4>How to run it (from the README, “${HX(run.section)}”)</h4><pre class="code">${HX(run.lines.join('\n'))}</pre>` : '');
   $('xbadge').textContent = 'assembled from the repository\'s files, no AI';
   // parts + imports
-  const rows = m.components.map((c) => `<tr><td><b>${HX(c.name)}</b><br><span class="tag">${HX(c.path || '/')}</span></td><td><span class="kindtag">${HX(c.kind)}</span></td><td>${HX(c.language || '')}</td><td>${c.files}</td><td>${c.entry ? `<code>${HX(c.entry)}</code>` : ''}</td><td>${HX(c.techs.join(', '))}</td></tr>`).join('');
+  const rows = m.components.map((c) => `<tr><td><b>${HX(c.name)}</b><br><span class="tag">${HX(c.path || '/')}</span></td><td><span class="kindtag">${HX(c.kind)}</span></td><td>${HX(c.language || '')}</td><td>${c.files}</td><td>${c.entry ? `<code data-openfile="${HX(c.entry)}" style="cursor:pointer" title="Open in the browser">${HX(c.entry)}</code>` : ''}</td><td>${HX(c.techs.join(', '))}</td></tr>`).join('');
   $('xpartsbody').innerHTML = !m.components.length ? '<p class="tag">No parts could be identified (a very small or unusual repository).</p>' : `<table class="xt"><tr><th>Part</th><th>Kind</th><th>Language</th><th>Files</th><th>Entry</th><th>Uses</th></tr>${rows}</table>`
     + (m.imports.length ? `<b>Imports between parts</b><table class="xt"><tr><th>From</th><th>To</th><th>Imports</th></tr>${m.imports.map((e) => `<tr><td>${HX(e.from)}</td><td>${HX(e.to)}</td><td>${e.count}</td></tr>`).join('')}</table>` : '<p class="tag">No imports between the parts were found (or this language is not followed yet).</p>');
   const inf = m.infrastructure; const li = (t) => `<li>${t}</li>`;
@@ -719,7 +744,7 @@ function showExplain(d) {
   if (Object.keys(inf.kubernetes.kinds).length) infra.push(li(`Kubernetes: ${HX(Object.entries(inf.kubernetes.kinds).map(([k, n]) => `${n} ${k}`).join(', '))}`));
   if (inf.terraform.files) infra.push(li(`Terraform: ${inf.terraform.files} files, ${inf.terraform.resources} resources (draw them in the <a href="#" data-goto="diagram">Diagram</a> tab)`));
   $('xstackbody').innerHTML = `${m.techs.length ? `<p>${m.techs.map((t) => `<span class="chip" title="${HX(t.evidence[0] ?? '')}">${HX(t.label)} <span class="tag">${HX(t.cat)}</span></span>`).join(' ')}</p>` : '<p class="tag">No known frameworks or services were recognised from the dependencies.</p>'}
-    ${m.entries.length ? `<b>Entry points</b><ul>${m.entries.map((e) => li(`<code>${HX(e.file)}</code> (${HX(e.component)}): ${HX(e.why)}`)).join('')}</ul>` : ''}
+    ${m.entries.length ? `<b>Entry points</b><ul>${m.entries.map((e) => li(`<code data-openfile="${HX(e.file)}" style="cursor:pointer" title="Open in the browser">${HX(e.file)}</code> (${HX(e.component)}): ${HX(e.why)}`)).join('')}</ul>` : ''}
     ${infra.length ? `<b>Delivery and infrastructure</b><ul>${infra.join('')}</ul>` : ''}
     ${m.openapi.length ? `<b>API descriptions</b><ul>${m.openapi.map((o) => li(`<code>${HX(o.path)}</code>${o.title ? ` “${HX(o.title)}”` : ''}: ${o.endpoints} endpoints`)).join('')}</ul>` : ''}
     ${m.env.length ? `<b>Environment variables</b><p class="tag">${HX(m.env.join(', '))}</p>` : ''}`;
@@ -731,8 +756,81 @@ function showExplain(d) {
   drawXDiagram();
 }
 
+
+// ---- Browse the repository: file tree on the left, the file on the right
+let xFiles = null;          // path -> text, when the browser already has the files (upload / private Git)
+let xRepoUrl = '';          // GitHub URL, when files are fetched one at a time
+let xFileCache = new Map();
+let xOpen = '';
+let xViewRaw = false;
+const fileSize = (n) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)} MB` : n >= 1e3 ? `${Math.round(n / 1e3)} KB` : `${n} B`);
+function buildTreeHtml(list) {
+  const root = { dirs: new Map(), files: [] };
+  for (const f of list) {
+    const parts = f.path.split('/'); let cur = root;
+    for (let i = 0; i < parts.length - 1; i++) { if (!cur.dirs.has(parts[i])) cur.dirs.set(parts[i], { dirs: new Map(), files: [] }); cur = cur.dirs.get(parts[i]); }
+    cur.files.push({ name: parts[parts.length - 1], path: f.path, size: f.size });
+  }
+  const render = (node, open) => `${[...node.dirs].sort((a, b) => a[0].localeCompare(b[0])).map(([n, d]) => `<details${open ? ' open' : ''}><summary>${HX(n)}</summary><div class="kids">${render(d, false)}</div></details>`).join('')}${node.files.sort((a, b) => a.name.localeCompare(b.name)).map((f) => `<div class="f" data-file="${HX(f.path)}" title="${HX(f.path)}">${HX(f.name)}<small>${fileSize(f.size)}</small></div>`).join('')}`;
+  return render(root, true);
+}
+function setupBrowser(d, files) {
+  xFiles = files ? new Map(files.map((f) => [f.path, f.content])) : null;
+  xRepoUrl = files ? '' : (d.owner ? `https://github.com/${d.owner}/${d.repo}${d.name.split('/').length > 2 ? `/tree/${d.branch || "HEAD"}/${d.name.split('/').slice(2).join('/')}` : ''}` : '');
+  xFileCache = new Map(); xOpen = '';
+  const list = d.tree ?? [];
+  $('xtreebox').innerHTML = list.length ? buildTreeHtml(list) : '<p class="tag">No files.</p>';
+  $('xfq').value = '';
+  $('xbrowsenote').textContent = `${list.length} text file${list.length === 1 ? '' : 's'}${d.truncated ? ' (large repository: part of it)' : ''}`;
+  const gh = d.owner ? `https://github.com/${d.owner}/${d.repo}` : '';
+  $('xgh').hidden = !gh; if (gh) $('xgh').href = gh;
+  $('xviewer').innerHTML = '<p class="tag">Pick a file on the left.</p>'; $('xvpath').textContent = 'Choose a file'; $('xvmode').hidden = true; $('xvcopy').hidden = true;
+  const readme = d.model?.readme?.path;
+  if (readme && list.some((f) => f.path === readme)) openFile(readme, false);
+}
+async function repoFileText(path) {
+  if (xFiles?.has(path)) return { content: xFiles.get(path), size: xFiles.get(path).length };
+  if (xFileCache.has(path)) return xFileCache.get(path);
+  if (!xRepoUrl) throw new Error('This file was not kept in the browser.');
+  const res = await fetch(`/api/repo/file?repo=${encodeURIComponent(xRepoUrl)}&path=${encodeURIComponent(path)}`, { headers: $('xtoken').value ? { 'x-github-token': $('xtoken').value } : {} });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error);
+  xFileCache.set(path, data);
+  return data;
+}
+async function openFile(path, scroll = true) {
+  xOpen = path;
+  document.querySelectorAll('#xtreebox .f').forEach((e) => e.classList.toggle('on', e.dataset.file === path));
+  $('xvpath').textContent = path; $('xviewer').innerHTML = '<p class="tag">Loading…</p>';
+  try {
+    const f = await repoFileText(path);
+    if (xOpen !== path) return;
+    const md = /\.(md|markdown)$/i.test(path);
+    $('xvmode').hidden = !md; $('xvcopy').hidden = false;
+    const lines = f.content.split('\n');
+    const cap = 4000;
+    const raw = `<pre class="code">${lines.slice(0, cap).map((l, i) => `<span class="ln">${i + 1}</span>${HX(l)}\n`).join('')}</pre>${lines.length > cap || f.truncated ? '<p class="tag">… the rest of this long file is not shown.</p>' : ''}`;
+    $('xviewer').innerHTML = md && !xViewRaw ? `<div class="prose">${mdToHtml(f.content.slice(0, 120000))}</div>` : raw;
+    $('xviewer').scrollTop = 0;
+    if (scroll) $('xbrowse').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch (e) { $('xviewer').innerHTML = `<p class="tag" style="color:var(--bad)">${HX(e.message)}</p>`; }
+}
+$('xtreebox').addEventListener('click', (e) => { const f = e.target.closest('[data-file]'); if (f) openFile(f.dataset.file, false); });
+$('xvmode').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; xViewRaw = b.dataset.v === 'raw'; document.querySelectorAll('#xvmode button').forEach((x) => x.classList.toggle('on', x === b)); if (xOpen) openFile(xOpen, false); });
+$('xvcopy').addEventListener('click', async () => { try { const f = await repoFileText(xOpen); await navigator.clipboard.writeText(f.content); $('xvcopy').textContent = 'Copied ✓'; } catch { $('xvcopy').textContent = 'Could not copy'; } setTimeout(() => { $('xvcopy').textContent = 'Copy'; }, 1500); });
+$('xfq').addEventListener('input', () => {
+  const q = $('xfq').value.trim().toLowerCase();
+  const list = xdata?.tree ?? [];
+  if (!q) { $('xtreebox').innerHTML = buildTreeHtml(list); document.querySelectorAll('#xtreebox .f').forEach((e) => e.classList.toggle('on', e.dataset.file === xOpen)); return; }
+  const hits = list.filter((f) => f.path.toLowerCase().includes(q)).slice(0, 300);
+  $('xtreebox').innerHTML = hits.length ? hits.map((f) => `<div class="f${f.path === xOpen ? ' on' : ''}" data-file="${HX(f.path)}" title="${HX(f.path)}">${HX(f.path)}<small>${fileSize(f.size)}</small></div>`).join('') : '<p class="tag">No file matches.</p>';
+});
+// file names in the tables open in the browser
+$('xresult').addEventListener('click', (e) => { const o = e.target.closest('[data-openfile]'); if (o) { e.preventDefault(); openFile(o.dataset.openfile, true); } });
+
 async function runExplain(forceRepo = false) {
   const m = forceRepo ? 'repo' : xmode();
+  let localFiles = null;
   $('xgo').disabled = true; xstatus(m === 'repo' ? 'Downloading the repository and reading it…' : m === 'local' ? 'Reading the repository with git on this computer… (a sign-in window may open)' : 'Reading…');
   try {
     let res;
@@ -744,11 +842,13 @@ async function runExplain(forceRepo = false) {
       const lr = await fetch('/api/local/fetch', { method: 'POST', body: JSON.stringify({ url: $('xlrepo').value.trim(), pat: $('xlpat').value, all: true }) });
       const ld = await lr.json();
       if (!lr.ok) throw new Error(ld.error);
+      localFiles = ld.files;
       res = await fetch('/api/repo', { method: 'POST', body: JSON.stringify({ name: ld.name, files: ld.files, tree: ld.tree }) });
     }
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
     showExplain(data);
+    setupBrowser(data, m === 'zip' ? xzipData.files : m === 'local' ? localFiles : null);
     xstatus(`${data.name}: ${data.model.components.length} parts, ${data.model.techs.length} technologies, ${data.fileCount} files`);
   } catch (e) { xstatus(e.message, true); $('xresult').hidden = true; } finally { $('xgo').disabled = false; }
 }

@@ -5,7 +5,7 @@ import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { handleApi, handleSearch } from './lib/api.js';
 import { handleMcp } from './lib/mcp.js';
-import { handleRepo } from './lib/repoapi.js';
+import { handleRepo, handleRepoFile } from './lib/repoapi.js';
 import { hasGit, readRepoWithGit } from './lib/localgit.js';
 import { parseAdoUrl, fetchAdoZip } from './lib/ado.js';
 
@@ -33,6 +33,11 @@ http.createServer(async (req, res) => {
   try {
     if (url.pathname === '/api/search') {
       const out = await handleSearch(new Request(url, { method: 'GET', headers: req.headers }), process.env);
+      res.writeHead(out.status, Object.fromEntries(out.headers));
+      return res.end(await out.text());
+    }
+    if (url.pathname === '/api/repo/file') {
+      const out = await handleRepoFile(new Request(url, { method: 'GET', headers: req.headers }), process.env);
       res.writeHead(out.status, Object.fromEntries(out.headers));
       return res.end(await out.text());
     }

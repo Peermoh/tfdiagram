@@ -41,7 +41,7 @@ Made from the sample projects in `public/samples/` (AWS three-tier, multiple env
 
 ![Connect AI](docs/screenshots/08-connect-ai.png)
 
-**Explain any repository**: summary, parts and imports, optional AI.
+**Explain any repository**: summary, parts and imports, a file browser to read the repository itself, optional AI.
 
 ![Explain repo](docs/screenshots/10-explain-repo.png)
 
