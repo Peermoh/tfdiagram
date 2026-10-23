@@ -48,16 +48,17 @@
   :root[data-theme=light] { color-scheme:light; }
   :root[data-theme=dark] { --bg:#0d0f1a; --fg:#e8eaf6; --muted:#98a0b8; --line:#262a3d; --card:#151828; --card2:#1a1e31; --accent:#9d85ff; --accent2:#c084fc; --accent-soft:rgba(157,133,255,.14); --edge:#94a3b8; --link:#a5b4fc; --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 28px rgba(0,0,0,.35); --ring:0 0 0 3px rgba(157,133,255,.3); --grid:rgba(255,255,255,.06); color-scheme:dark; }
   * { box-sizing:border-box; }
-  html { scroll-behavior:smooth; }
-  body { margin:0; color:var(--fg); font:15px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing:antialiased;
-    background:radial-gradient(900px 420px at 12% -8%, var(--accent-soft), transparent 70%), radial-gradient(800px 380px at 95% -4%, rgba(255,140,60,.08), transparent 70%), var(--bg); background-attachment:fixed; }
+  body { margin:0; color:var(--fg); font:15px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing:antialiased; background:var(--bg); }
+  /* the soft colour glow sits on its own fixed layer: `background-attachment: fixed` forces a repaint on every scroll step (jerky when scrolling back up) */
+  body::before { content:''; position:fixed; inset:0; z-index:-1; pointer-events:none; transform:translateZ(0);
+    background:radial-gradient(900px 420px at 12% -8%, var(--accent-soft), transparent 70%), radial-gradient(800px 380px at 95% -4%, rgba(255,140,60,.08), transparent 70%); }
   a { color:var(--link); }
   code { font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:.92em; background:var(--accent-soft); padding:1px 6px; border-radius:6px; }
   .ic::before { content:''; display:inline-block; width:1.15em; height:1.15em; vertical-align:-.2em; margin-right:.45em; background:currentColor; -webkit-mask:var(--i) center/contain no-repeat; mask:var(--i) center/contain no-repeat; }
   .ic.only::before { margin:0; }
 
   /* top bar */
-  .top { position:sticky; top:0; z-index:20; backdrop-filter:saturate(1.6) blur(14px); -webkit-backdrop-filter:saturate(1.6) blur(14px); background:color-mix(in srgb, var(--bg) 78%, transparent); border-bottom:1px solid var(--line); }
+  .top { position:sticky; top:0; z-index:20; background:color-mix(in srgb, var(--bg) 94%, transparent); transform:translateZ(0); border-bottom:1px solid var(--line); }
   .top-in { max-width:1180px; margin:0 auto; padding:10px 16px; display:flex; align-items:center; gap:14px; }
   .brand { display:flex; align-items:center; gap:10px; font-weight:800; font-size:19px; letter-spacing:-.02em; margin-right:auto; }
   .brand img { border-radius:10px; box-shadow:0 4px 14px rgba(109,74,255,.35); }
@@ -165,9 +166,9 @@
   .legend span.k { display:inline-block; max-width:100%; }
   .legend i { width:12px; height:12px; border-radius:4px; display:inline-block; margin-right:6px; vertical-align:-1px; }
   .legend b { color:var(--fg); font-weight:600; }
-  #out { border:1px solid var(--line); border-radius:18px; padding:16px; overflow:auto; min-height:90px; background:radial-gradient(var(--grid) 1px, transparent 1px) 0 0/22px 22px, var(--card); box-shadow:var(--shadow); }
+  #out { overflow-anchor:none; border:1px solid var(--line); border-radius:18px; padding:16px; overflow:auto; min-height:90px; background:radial-gradient(var(--grid) 1px, transparent 1px) 0 0/22px 22px, var(--card); box-shadow:var(--shadow); }
   #out svg { animation:rise .4s both; }
-  #backbar { position:sticky; top:62px; z-index:8; display:flex; align-items:center; gap:12px; padding:8px 0; background:color-mix(in srgb, var(--bg) 85%, transparent); backdrop-filter:blur(8px); }
+  #backbar { position:sticky; top:62px; z-index:8; display:flex; align-items:center; gap:12px; padding:8px 0; background:var(--bg); }
   #backbar[hidden] { display:none; } #backlabel { color:var(--muted); font-size:14px; }
   details.fold { margin-top:14px; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:4px 16px; box-shadow:var(--shadow); }
   details.fold > summary { cursor:pointer; padding:10px 0; font-weight:700; list-style:none; display:flex; align-items:center; } details.fold > summary::-webkit-details-marker { display:none; }
