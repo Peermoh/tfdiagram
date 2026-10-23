@@ -106,7 +106,7 @@ The **Explain repo** tab (and `POST/GET /api/repo`) understands any code reposit
    page sends the extracted overview straight from the browser to `api.anthropic.com` (never through this site) and streams back an explanation plus a
    diagram that is drawn with the same renderer. Nothing is billed to the site owner.
 3. **Through MCP**: `analyze_repo` and `get_repo_file` give the visitor's own Claude the same overview (plus a Mermaid diagram) so it can write the explanation on their plan.
-Inputs: public GitHub URL (downloaded as one zip, up to 40 MB), uploaded zip, or (local only) Private Git. Limits: imports are regex-based and can miss dynamic
+Inputs: public GitHub URL (downloaded as one zip, up to 40 MB), **Search GitHub** (any repository, any language: type words or GitHub qualifiers like `org:vercel` / `topic:cli`, filter by language and sort; empty = most popular; **Explain** on a result opens it with a Back button to the list; `/api/search?any=1&lang=Go`), uploaded zip, or (local only) Private Git. Limits: imports are regex-based and can miss dynamic
 imports; other languages fall back to folder structure; very large repositories are partly read (the page says so).
 
 ## stack.json patterns

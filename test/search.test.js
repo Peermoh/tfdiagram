@@ -87,3 +87,14 @@ test('a repo with no .tf at the top level draws its best folder and offers the o
   assert.equal(parseRepoUrl('https://github.com/o/r/tree/main/infra/net').path, 'infra/net');
   await assert.rejects(withFetch(async (url) => (String(url).includes('/git/trees/') ? jsonRes({ tree: [{ type: 'blob', path: 'a.md', size: 1 }] }) : new Response('')), () => fetchTerraformTree('https://github.com/o/r')), /No \.tf files found in that repository/);
 });
+
+test('search any repository: no Terraform words or HCL filter, optional language, popular repos when empty', () => {
+  assert.equal(buildQuery({ q: '', any: true }), 'stars:>1000');
+  assert.equal(buildQuery({ q: '  ', any: true, lang: 'Go' }), 'stars:>1000 language:Go');
+  assert.equal(buildQuery({ q: 'react hooks', any: true, lang: 'TypeScript' }), 'react hooks language:TypeScript');
+  assert.equal(buildQuery({ q: 'cli language:rust', any: true, lang: 'Go' }), 'cli language:rust');       // a typed qualifier wins
+  assert.equal(buildQuery({ q: 'x', any: true, lang: 'Go; drop' }), 'x');                                    // odd language values are ignored
+  assert.equal(buildQuery({ q: 'org:vercel', any: true, hcl: true, cloud: 'aws' }), 'org:vercel');            // Terraform options do not apply
+  assert.deepEqual(parseSearchParams(new URLSearchParams('any=1&lang=C%2B%2B&sort=updated')), { query: 'stars:>1000 language:C++', sort: 'updated', page: 1 });
+  assert.equal(parseSearchParams(new URLSearchParams('q=vpc')).query, 'vpc language:HCL');                    // the default is still Terraform
+});

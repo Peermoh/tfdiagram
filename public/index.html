@@ -339,15 +339,25 @@
     <p>Not only Terraform. Point at a GitHub repo, a zip, or a private repo on your computer: you get a plain-language summary, the parts it is made of, how they depend on each other, and a diagram. It works without AI; add your own key if you want a written explanation.</p>
     <div class="chips"><span class="chip ic" style="--i:var(--i-code)">Any language</span><span class="chip ic" style="--i:var(--i-layers)">Parts and imports</span><span class="chip ic" style="--i:var(--i-plug)">Docker, CI, Kubernetes</span><span class="chip ic" style="--i:var(--i-sparkle)">Optional AI with your key</span></div>
   </div>
-  <div class="card">
+  <div class="card" id="xcard">
     <div class="modes" id="xmodes">
       <span class="ind"></span>
       <label class="ic" style="--i:var(--i-github)"><input type="radio" name="xmode" value="repo" checked>GitHub URL</label>
+      <label class="ic" style="--i:var(--i-search)"><input type="radio" name="xmode" value="search">Search GitHub</label>
       <label class="ic" style="--i:var(--i-zip)"><input type="radio" name="xmode" value="zip">Upload zip</label>
       <label class="ic" id="xlocalTab" hidden style="--i:var(--i-lock)"><input type="radio" name="xmode" value="local">Private Git (this computer)</label>
     </div>
     <form id="xf">
       <input type="text" id="xrepo" placeholder="https://github.com/owner/repo  (or .../tree/main/some-folder)" required>
+      <div id="xsearchbox" hidden>
+        <input type="search" id="xsq" placeholder="Search any repository (react state management, kubernetes operator, org:vercel …) or leave empty for the most popular">
+        <div class="optbar" style="margin-top:12px;padding-top:0;border:0">
+          <label class="f">Sort <select id="xssort"><option value="stars">Most stars</option><option value="updated">Recently updated</option><option value="best">Best match</option></select></label>
+          <label class="f">Language <select id="xslang"><option value="">Any</option><option>JavaScript</option><option>TypeScript</option><option>Python</option><option>Java</option><option>Go</option><option>Rust</option><option>C#</option><option>C++</option><option>C</option><option>PHP</option><option>Ruby</option><option>Kotlin</option><option>Swift</option><option>Scala</option><option>Dart</option><option>Shell</option><option>HCL</option></select></label>
+          <button type="button" id="xsclear" class="ghost ic" style="--i:var(--i-x)" hidden>Clear search</button>
+        </div>
+        <p class="tag">Finds public repositories on GitHub. Press <b>Explain</b> on a result to read it here. GitHub's search words work too, like <code>org:hashicorp</code>, <code>user:name</code> or <code>topic:cli</code>.</p>
+      </div>
       <div id="xzipbox" hidden>
         <label id="xzipdrop" class="zipdrop"><input type="file" id="xzip" accept=".zip,application/zip,application/x-zip-compressed">
           <b>Choose a .zip</b> or drop it here: any project, or a repo downloaded from GitHub / Azure DevOps. It is opened in your browser; only the text files are sent to be analysed, nothing is stored.</label>
@@ -362,7 +372,9 @@
     </form>
     <div class="optbar" id="xtokenbar"><label class="f ic" style="--i:var(--i-key)">GitHub token (optional) <input type="password" id="xtoken" autocomplete="off" size="24"></label><span class="tag">Public repos need none. A token opens private repos and raises limits; it is used for this request only.</span></div>
   </div>
+  <button type="button" id="xtosearch" class="ghost ic" style="--i:var(--i-back);margin-top:14px" hidden>Back to search results</button>
   <div id="xstatus"></div>
+  <div id="xresults"></div>
   <div id="xresult" hidden>
     <div class="card" id="xsummary"></div>
     <div class="card" id="xexplaincard">
@@ -627,12 +639,18 @@ function paintXModes() {
 function syncXMode() {
   const m = xmode();
   $('xrepo').hidden = m !== 'repo'; $('xrepo').required = m === 'repo'; $('xzipbox').hidden = m !== 'zip'; $('xlocalbox').hidden = m !== 'local';
-  $('xtokenbar').hidden = m !== 'repo';
+  $('xtokenbar').hidden = m !== 'repo' && m !== 'search';
+  $('xsearchbox').hidden = m !== 'search'; $('xresults').hidden = m !== 'search' || xSearchView !== 'list'; $('xgo').textContent = m === 'search' ? 'Search' : 'Explain';
+  if (m !== 'search') { xSearchView = 'list'; $('xcard').hidden = false; $('xtosearch').hidden = true; }
   paintXModes();
 }
-document.querySelectorAll('input[name=xmode]').forEach((r) => r.addEventListener('change', syncXMode));
+document.querySelectorAll('input[name=xmode]').forEach((r) => r.addEventListener('change', () => { syncXMode(); if (xmode() === 'search' && !$('xresults').children.length) xsearch(1); }));
 $('toAiPage').addEventListener('click', (e) => { e.preventDefault(); showPage('ai'); scrollTo({ top: 0, behavior: 'smooth' }); });
 
+let xSearchView = 'list';   // Search GitHub has two pages: the list, and the repo you pressed Explain on
+let xSearchScroll = 0;
+let xSearchStatus = '';
+let xSearchSeq = 0;
 let xdata = null;           // the last analysis: { name, model, mermaid, context, ... }
 let xzipData = null;        // { files, tree, name, truncated } from an uploaded zip
 let xAiDiagram = null;
@@ -713,8 +731,8 @@ function showExplain(d) {
   drawXDiagram();
 }
 
-async function runExplain() {
-  const m = xmode();
+async function runExplain(forceRepo = false) {
+  const m = forceRepo ? 'repo' : xmode();
   $('xgo').disabled = true; xstatus(m === 'repo' ? 'Downloading the repository and reading it…' : m === 'local' ? 'Reading the repository with git on this computer… (a sign-in window may open)' : 'Reading…');
   try {
     let res;
@@ -734,7 +752,48 @@ async function runExplain() {
     xstatus(`${data.name}: ${data.model.components.length} parts, ${data.model.techs.length} technologies, ${data.fileCount} files`);
   } catch (e) { xstatus(e.message, true); $('xresult').hidden = true; } finally { $('xgo').disabled = false; }
 }
-$('xf').addEventListener('submit', (e) => { e.preventDefault(); runExplain(); });
+$('xf').addEventListener('submit', (e) => { e.preventDefault(); if (xmode() === 'search') xsearch(1); else runExplain(); });
+
+// ---- search any repository on GitHub, then explain one
+const xhit = (r) => `<div class="hit"><h3><a href="${H(r.url)}" target="_blank" rel="noopener">${H(r.fullName)} ↗</a>${r.archived ? ' <span class="tag">(archived)</span>' : ''}</h3>
+    ${r.description ? `<p>${H(r.description)}</p>` : ''}
+    ${r.topics.length ? `<div class="topics">${r.topics.map((t) => `<span>${H(t)}</span>`).join('')}</div>` : ''}
+    <div class="meta">★ ${fmt.format(r.stars)} · updated ${H(ago(r.updated))}${r.language ? ` · ${H(r.language)}` : ''}</div>
+    <p style="margin:8px 0 0"><button type="button" data-explain="${H(r.url)}">Explain</button></p></div>`;
+async function xsearch(page) {
+  const mine = ++xSearchSeq;
+  $('xgo').disabled = true; xstatus('Searching GitHub…');
+  try {
+    const qs = new URLSearchParams({ q: $('xsq').value, sort: $('xssort').value, lang: $('xslang').value, any: '1', page });
+    const res = await fetch(`/api/search?${qs}`, { headers: $('xtoken').value ? { 'x-github-token': $('xtoken').value } : {} });
+    const data = await res.json();
+    if (mine !== xSearchSeq) return;
+    if (!res.ok) throw new Error(data.error);
+    const box = $('xresults');
+    if (page === 1) box.replaceChildren();
+    box.querySelector('.more')?.remove();
+    box.insertAdjacentHTML('beforeend', data.items.map(xhit).join(''));
+    $('xsclear').hidden = false;
+    if (data.hasMore) box.insertAdjacentHTML('beforeend', '<p class="more"><button type="button" id="xmore" class="ghost">Show more</button></p>');
+    const what = $('xsq').value.trim() ? '' : `most popular${$('xslang').value ? ` ${$('xslang').value}` : ''} repositories: `;
+    xSearchStatus = data.total ? `${what}${fmt.format(data.total)} repositor${data.total === 1 ? 'y' : 'ies'} found${data.total > 1000 ? ' (GitHub shows the first 1,000)' : ''}` : 'No repositories found. Try other words.';
+    xstatus(xSearchStatus);
+    $('xresults').hidden = xSearchView !== 'list';
+  } catch (e) { xstatus(e.message, true); } finally { $('xgo').disabled = false; }
+}
+$('xresults').addEventListener('click', (e) => {
+  if (e.target.id === 'xmore') { xsearch(Math.floor($('xresults').querySelectorAll('.hit').length / 15) + 1); return; }
+  const url = e.target.closest('[data-explain]')?.dataset.explain;
+  if (!url) return;
+  xSearchScroll = scrollY; xSearchView = 'detail';
+  $('xrepo').value = url; $('xcard').hidden = true; $('xresults').hidden = true; $('xtosearch').hidden = false;
+  scrollTo({ top: 0 }); runExplain(true);
+});
+$('xtosearch').addEventListener('click', () => {
+  xSearchView = 'list'; $('xcard').hidden = false; $('xresults').hidden = false; $('xtosearch').hidden = true; $('xresult').hidden = true;
+  xstatus(xSearchStatus); scrollTo({ top: xSearchScroll });
+});
+$('xsclear').addEventListener('click', () => { $('xsq').value = ''; $('xslang').value = ''; xsearch(1); $('xsclear').hidden = true; });
 
 async function loadXZip(file) {
   xstatus(`Reading ${file.name}…`); $('xzipnote').textContent = '';
