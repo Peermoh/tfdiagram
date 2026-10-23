@@ -86,7 +86,7 @@ Optional: `PORT=8080 npm start`; `GITHUB_TOKEN=... npm start` for private repos 
 - `variable` defaults, `locals`, `count` / `for_each` (resources that work out to 0 are hidden; tick "also show" to see them),
   `cidrsubnet`, `for` expressions, ternaries and common functions are evaluated (`lib/details.js`, `lib/cidr.js`).
 - `terraform.tfvars` and `*.auto.tfvars` next to the drawn folder apply to the root module. **More options > Variable
-  values** takes `name = value` lines that override them. Other `.tfvars` files (they need `-var-file`) are not applied.
+  values** takes `name = value` lines that override them. **More options > Variable file** lists every `.tfvars` in the repo or zip (for example `envs/prod.tfvars`): pick one to draw that environment (it is applied on top of the auto-loaded files, like `-var-file`). A `.tfvars` pasted on its own only holds values, so the app explains that it needs the `.tf` code too.
 - Local modules (`./x`, `../../`) are followed. Registry modules (`terraform-aws-modules/vpc/aws`, with `version`
   constraints) and GitHub sources (`github.com/o/r`, `git::https://...?ref=`, `//subdir`) are downloaded as zips and opened
   too (max 8 downloads per diagram; `examples/` and `tests/` skipped; `lib/registry.js`). Module outputs and inputs are traced
@@ -108,7 +108,7 @@ Claude Code: `claude mcp add --transport http tfdiagram https://<your site>/mcp`
 - Tests: `npm test` (node:test; headless-browser checks were done ad hoc, not in the repo).
 
 ## Not yet
-GCP, Terraform plan/state input, other `.tfvars` selection, diffing two versions, non-GitHub module hosts, a security review
+GCP, Terraform plan/state input, diffing two versions, non-GitHub module hosts, a security review
 beyond the rule-based findings.
 
 ## Official AWS and Azure icons

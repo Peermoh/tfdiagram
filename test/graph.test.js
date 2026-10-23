@@ -1236,3 +1236,25 @@ test('count.index ranges: one CIDR per copy, also when the base comes through a 
   const tree = { dir: '', files: [{ path: 'm.tf', content: 'variable "vpc_cidr" { default = "10.9.0.0/16" }\nmodule "n" {\n  source = "./n"\n  vpc_cidr = var.vpc_cidr\n}' }], children: { n: { dir: 'n', files: [{ path: 'n/m.tf', content: sub }], children: {} } } };
   assert.deepEqual(buildGraph(tree).nodes.find((n) => n.type === 'aws_subnet').cidrs, ['10.9.10.0/24', '10.9.11.0/24']);
 });
+
+test('Variable file: a picked .tfvars is applied on top of terraform.tfvars; tfvars alone gets a clear message', async () => {
+  const { handleApi } = await import('../lib/api.js');
+  const post = (body) => handleApi(new Request('http://x/api/diagram', { method: 'POST', body: JSON.stringify(body) })).then((r) => r.json());
+  const files = [
+    { path: 'main.tf', content: 'variable "n" { default = 1 }\nvariable "bucket" { default = false }\nresource "aws_instance" "a" {\n  count = var.n\n}\nresource "aws_s3_bucket" "b" {\n  count = var.bucket ? 1 : 0\n}' },
+    { path: 'terraform.tfvars', content: 'n = 2\n' },
+    { path: 'envs/prod.tfvars', content: 'n = 5\nbucket = true\n' },
+  ];
+  const auto = await post({ files });
+  assert.deepEqual(auto.tfvarsFiles.sort(), ['envs/prod.tfvars', 'terraform.tfvars']);
+  assert.equal(auto.graph.nodes.find((n) => n.id === 'aws_instance.a').instances, 2);
+  assert.ok(!auto.graph.nodes.some((n) => n.id === 'aws_s3_bucket.b'));
+  const prod = await post({ files, varfile: 'envs/prod.tfvars' });
+  assert.equal(prod.graph.nodes.find((n) => n.id === 'aws_instance.a').instances, 5);
+  assert.ok(prod.graph.nodes.some((n) => n.id === 'aws_s3_bucket.b'));
+  assert.equal(prod.varChoice, 'envs/prod.tfvars');
+  assert.ok(prod.checks.some((c) => /Applied values from envs\/prod\.tfvars/.test(c.text)));
+  const only = await post({ code: 'environment = "prod"\ninstance_count = 3\nvpc_cidr = "10.0.0.0/16"\n' });
+  assert.equal(only.checks[0].level, 'error');
+  assert.match(only.checks[0].text, /looks like a \.tfvars file/);
+});
