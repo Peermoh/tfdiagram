@@ -1,74 +1,83 @@
-<img src="public/logo.svg" alt="" width="64" align="left"> 
+<img src="public/logo.svg" alt="" width="64" align="left">
 
 # TFDiagram
 
-Paste a GitHub repo URL containing Terraform (AWS or Azure) and get an architecture diagram.
-Like GitDiagram, but it parses the `.tf` files directly instead of guessing with an LLM.
+Turn Terraform (AWS or Azure) into an architecture diagram: cloud, VPC and subnets, big service icons, animated traffic
+flow, and the security-group rules that allow each arrow. It parses the `.tf` files directly instead of guessing with an LLM.
 
-    npm start            # http://localhost:3000
+## Run it locally (private: your code stays on your machine)
+
+Needs Node.js 20+ and git. There are no runtime dependencies.
+
+    git clone https://github.com/Peermoh/tfdiagram.git
+    cd tfdiagram
+    npm start                      # http://localhost:3000
     npm test
 
-Upload zip: choose or drop a `.zip` of a Terraform project (or a repo from GitHub's Code > Download ZIP). The zip is
-opened in the browser (`public/unzip.js`, no library); only the `.tf` text is sent to `/api/diagram`. If it holds several
-folders, pick which one to draw; local modules (`./x`, `../../`) are followed inside the zip. Limits: 3000 files,
-500 KB per file, 8 MB of `.tf` text; `.terraform/`, `.git/` and macOS junk are ignored.
+Optional: `PORT=8080 npm start`; `GITHUB_TOKEN=... npm start` for private repos or a higher GitHub rate limit
+(or paste a token on the page: sent per request, never stored).
 
-Search GitHub: finds public repositories (`/api/search`, language HCL by default; sort by stars/updated, filter AWS/Azure,
-GitHub qualifiers like `org:` work). **Draw diagram** on a result opens it in GitHub URL mode. If a repo has no `.tf` at
-the top level, its best folder is drawn and a **Folder to draw** dropdown lists the others. Search is rate-limited to about
-10/min without a token (paste one on the page or set the `GITHUB_TOKEN` secret).
+## Ways to give it Terraform
+- **Paste code**: one or more `.tf` files.
+- **GitHub URL**: `https://github.com/owner/repo` or `.../tree/<branch>/<path>`. Public repos are downloaded as one zip
+  (no API rate limit, nothing cut off); private ones need a token. If the repo has no `.tf` at the top level, its best
+  folder is drawn and **Folder to draw** lists the others, plus **All folders** (each folder becomes a module box, up to 40).
+- **Upload zip**: choose or drop a `.zip` (or GitHub's Code > Download ZIP). It is opened in the browser
+  (`public/unzip.js`); only the `.tf` text and `terraform.tfvars` / `*.auto.tfvars` are sent for analysis. Samples to try
+  are in `public/samples/` and linked on the page.
+- **Search GitHub**: finds public Terraform repos (`/api/search`; sort, AWS/Azure filter, `org:` qualifiers work).
+  Empty search shows the most popular ones. About 10 searches a minute without a token.
 
-URL forms: `https://github.com/owner/repo` or `.../tree/<branch>/<path>` for a subfolder.
-Private repos or rate limits: paste a GitHub token in the page (sent per request, never stored).
+## What it shows
+- **Architecture style** (default): AWS Cloud / Azure, then VPC, then subnet boxes (green = public, blue = private by name),
+  large official icons, `x N` for several copies, animated traffic arrows from the internet and load balancers through
+  compute to data stores. A pill on each arrow names the security-group rule that lets the traffic in (green allowed,
+  amber open to the whole internet, red none found; hover for the rule). Rules that name another group add real arrows.
+- **Cards style**: every resource as a card, grouped by layer, with module containers and details.
+- Layers, filter, module scope, collapse modules, overview or every resource, left-to-right or top-to-bottom, zoom
+  (buttons or Ctrl/Cmd + wheel), fit to width, light/dark theme.
+- Click a resource: its settings, rules, routes, IP ranges and its Terraform block (or the whole file with the block
+  highlighted). A **Terraform code** section shows every file.
+- **Export** the diagram as SVG or PNG, or **Copy link** to reopen the same view (GitHub URL mode).
+- A **Checks** list explains what was read, which folder was drawn, modules followed or missing, unknown variables,
+  resources with `count = 0`, other providers, and so on (`lib/validate.js`).
 
-## How it works
-- `public/unzip.js` reads `.tf` files out of an uploaded zip in the browser.
-- `lib/search.js` searches GitHub for Terraform repositories.
-- `lib/github.js` lists and downloads `.tf` files via the GitHub API.
-- `lib/modules.js` follows local module sources (`./x`, `../../`) and loads those folders too.
-- `lib/parse.js` extracts `resource` / `module` / `data` blocks.
-- `lib/graph.js` finds references between blocks (`aws_subnet.x.id`) as edges, groups nodes
-  (Networking, Compute, Data, Security & IAM), hides plumbing by default, and emits Mermaid.
-- `lib/graph.js` also follows `local.*` values, so references hidden behind locals still become arrows.
-- `public/diagram.js` draws the SVG (icons, legend colours, right-angle arrows) using dagre for layout (`public/vendor/dagre.min.js`, MIT, (c) Chris Pettitt).
-- `public/render.js` filters the graph (layer, search, module, collapse) and emits Mermaid; `public/index.html` draws it in the browser.
+## Values and modules
+- `variable` defaults, `locals`, `count` / `for_each` (resources that work out to 0 are hidden; tick "also show" to see them),
+  `cidrsubnet`, `for` expressions, ternaries and common functions are evaluated (`lib/details.js`, `lib/cidr.js`).
+- `terraform.tfvars` and `*.auto.tfvars` next to the drawn folder apply to the root module. **More options > Variable
+  values** takes `name = value` lines that override them. Other `.tfvars` files (they need `-var-file`) are not applied.
+- Local modules (`./x`, `../../`) are followed. Registry modules (`terraform-aws-modules/vpc/aws`, with `version`
+  constraints) and GitHub sources (`github.com/o/r`, `git::https://...?ref=`, `//subdir`) are downloaded as zips and opened
+  too (max 8 downloads per diagram; `examples/` and `tests/` skipped; `lib/registry.js`). Module outputs and inputs are traced
+  to the resources behind them.
 
-## Input
-Paste `.tf` code or give a GitHub URL; pick AWS, Azure, or auto-detect.
+## Use it from your own AI (MCP)
+The site is also an MCP server at `/mcp` (Streamable HTTP, stateless, no login). Your AI app does the thinking on your own
+plan; this site only parses Terraform. Tools: `analyze_terraform_repo`, `analyze_terraform_code`, `get_resource_code`
+(`lib/mcp.js`). Claude (web/desktop): Settings > Connectors > Add custom connector > paste `https://<your site>/mcp`.
+Claude Code: `claude mcp add --transport http tfdiagram https://<your site>/mcp`. Public repos and pasted code only.
 
-## Checks
-Every run (zip, GitHub URL, pasted code) ends with a checklist under the status line: problems first, then notes.
-It reports what was read, the folder drawn, resource/module counts, local modules followed or missing from the zip
-(with how to fix it), registry/git modules that stay single boxes, other providers or mixed AWS+Azure, variables with
-no value, `.tf.json` / `.tfvars` files that are not read, and skipped files. See `lib/validate.js`.
+## How it is built
+- `lib/parse.js` extracts blocks; `lib/graph.js` builds nodes and edges (references, module outputs, locals, attachments);
+  `lib/details.js` and `lib/cidr.js` evaluate expressions; `lib/modules.js` loads module trees; `lib/github.js`,
+  `lib/zipdl.js` and `lib/registry.js` fetch code; `lib/api.js` is the runtime-agnostic handler used by both
+  `worker.js` (Cloudflare) and `server.js` (local); `lib/search.js`, `lib/validate.js`, `lib/mcp.js`.
+- `public/render.js` filters and summarises the graph; `public/diagram.js` draws the SVG (Cards and Architecture styles) with
+  dagre for layout (`public/vendor/dagre.min.js`, MIT, (c) Chris Pettitt); `public/index.html` is the page.
+- Tests: `npm test` (node:test; headless-browser checks were done ad hoc, not in the repo).
 
 ## Not yet
-Cloud icons, `count`/`for_each` expansion, registry (non-local) module internals, GCP, plan diffs.
+GCP, Terraform plan/state input, other `.tfvars` selection, diffing two versions, non-GitHub module hosts, a security review
+beyond the rule-based findings.
 
-## Official AWS and Azure icons (optional)
-The app draws its own icons by default. To use the vendors' official artwork instead, download the packs yourself
-and import them (the repo does not ship them):
-
-1. AWS Architecture Icons: https://aws.amazon.com/architecture/icons/ (the Asset Package zip)
-2. Azure icons: https://learn.microsoft.com/azure/architecture/icons/ (the SVG zip)
-3. Unzip both, then run:
-
-       npm run icons -- --aws <unzipped AWS folder> --azure <unzipped Azure folder>
-
-   It matches files to Terraform resource types by name, copies the matches to `public/icons/`, writes
-   `public/icons/manifest.json`, and prints which types had no match (those keep the built-in icon).
-4. Commit `public/icons/` and push; Cloudflare redeploys. Diagrams show the official icons, unmodified.
-
-   No computer? In GitHub open Actions > "Import official icons" > Run workflow, paste the direct download link of each
-   pack (copy the link address of the Download button), and it does steps 2-4 for you and shows the match report.
-
-Read the vendors' icon terms first (they restrict modifying the icons and implying endorsement, and may restrict
-redistributing the packs; keep the repo private if in doubt). The page shows a short attribution note whenever
-official icons are installed. Delete the files in `public/icons/` and reset `manifest.json` to `{}` to go back.
+## Official AWS and Azure icons
+The icons in `public/icons/` were imported from the vendors' packs with `npm run icons` (see `scripts/import-icons.mjs`
+and the "Import official icons" GitHub Action). They are shown unmodified with an attribution note. Read the vendors' icon
+terms before redistributing; delete `public/icons/*` and reset `manifest.json` to `{}` to fall back to the built-in icons.
 
 ## Deploy (Cloudflare Workers)
-`wrangler.jsonc` serves `public/` as static assets and routes `/api/*` to `worker.js`.
-In the Cloudflare dashboard: Workers & Pages > Create > Import a repository > this repo,
-name `tfdiagram`, empty build command, deploy command `npx wrangler deploy`.
-Optional: `npx wrangler secret put GITHUB_TOKEN` to raise the shared GitHub API rate limit.
-Repos are limited to 45 `.tf` files per request (free plan subrequest limit).
+`wrangler.jsonc` serves `public/` as static assets and routes `/api/*` and `/mcp` to `worker.js`. In the Cloudflare dashboard:
+Workers & Pages > Create > Import a repository > this repo, name `tfdiagram`, empty build command, deploy command
+`npx wrangler deploy`. Recommended: add a `GITHUB_TOKEN` secret (`npx wrangler secret put GITHUB_TOKEN`) to raise the shared
+GitHub rate limit for search and fallbacks. API responses are sent with `Cache-Control: no-store`.
