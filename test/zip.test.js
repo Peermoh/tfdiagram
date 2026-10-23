@@ -91,7 +91,7 @@ test('checks: things in the zip that were not read are reported', async () => {
   assert.deepEqual(levels, [...levels].sort((a, b) => ['error', 'warn', 'info', 'ok'].indexOf(a) - ['error', 'warn', 'info', 'ok'].indexOf(b)), 'problems come first');
 });
 
-test('unzip reads .tf and every .tfvars, and counts the .tf.json it does not read', async () => {
+test('unzip reads .tf and every .tfvars, and and .tf.json', async () => {
   // a zip built on the fly (stored entries) with the files we want to see counted
   const enc = new TextEncoder();
   const entries = [['a/main.tf', 'resource "aws_vpc" "v" {}'], ['a/x.tf.json', '{}'], ['a/prod.tfvars', 'x = 1'], ['a/.terraform/y.tf.json', '{}']];
@@ -108,6 +108,6 @@ test('unzip reads .tf and every .tfvars, and counts the .tf.json it does not rea
   const eocd = [...u32(0x06054b50), ...u16(0), ...u16(0), ...u16(entries.length), ...u16(entries.length), ...u32(cd.length), ...u32(offset), ...u16(0)];
   const bytes = new Uint8Array([...parts.flat(), ...cd, ...eocd]);
   const { files, ignored } = await unzipTerraform(bytes.buffer);
-  assert.deepEqual(files.map((f) => f.path), ['a/main.tf', 'a/prod.tfvars']);
-  assert.deepEqual(ignored, { tfjson: 1, tfvars: 0 });   // the one inside .terraform/ is junk, not counted
+  assert.deepEqual(files.map((f) => f.path), ['a/main.tf', 'a/x.tf.json', 'a/prod.tfvars']);
+  assert.deepEqual(ignored, { tfjson: 0, tfvars: 0 });   // the one inside .terraform/ is junk, not counted
 });

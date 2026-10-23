@@ -58,7 +58,7 @@ Optional: `PORT=8080 npm start`; `GITHUB_TOKEN=... npm start` for private repos 
 (or paste a token on the page: sent per request, never stored).
 
 ## Ways to give it Terraform
-- **Paste code**: one or more `.tf` files.
+- **Paste code**: one or more `.tf` files, or Terraform written as JSON (`.tf.json`); a pasted JSON object of values (`.tfvars.json`) is drawn as a sketch.
 - **GitHub URL**: `https://github.com/owner/repo` or `.../tree/<branch>/<path>`. Public repos are downloaded as one zip
   (no API rate limit, nothing cut off); private ones need a token. If the repo has no `.tf` at the top level, its best
   folder is drawn and **Folder to draw** lists the others, plus **All folders** (each folder becomes a module box, up to 40).
@@ -81,6 +81,9 @@ Optional: `PORT=8080 npm start`; `GITHUB_TOKEN=... npm start` for private repos 
 - **Export** the diagram as SVG or PNG, or **Copy link** to reopen the same view (GitHub URL mode).
 - A **Checks** list explains what was read, which folder was drawn, modules followed or missing, unknown variables,
   resources with `count = 0`, other providers, and so on (`lib/validate.js`).
+
+## JSON
+`*.tf.json` files (in zips and GitHub repos) and pasted Terraform JSON are converted to HCL first (`lib/json.js`); `"${var.x}"` becomes the expression `var.x`, arrays of objects become blocks. `terraform.tfvars.json` and `*.auto.tfvars.json` apply like their `.tfvars` twins, and every `*.tfvars.json` appears in the Variable file dropdown. Not covered: `.tf.json` in the rare case of a repo too big for the zip download (the file-by-file fallback reads `.tf` only).
 
 ## Values and modules
 - `variable` defaults, `locals`, `count` / `for_each` (resources that work out to 0 are hidden; tick "also show" to see them),

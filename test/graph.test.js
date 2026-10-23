@@ -1277,3 +1277,36 @@ test('a .tfvars pasted alone is drawn as a labelled sketch from its variable nam
   assert.equal(nothing.graph.nodes.length, 0);
   assert.equal(nothing.checks[0].level, 'error');
 });
+
+test('JSON: .tf.json is converted, terraform.tfvars.json applies, pasted JSON works', async () => {
+  const { handleApi } = await import('../lib/api.js');
+  const { tfJsonToHcl, fromPastedJson } = await import('../lib/json.js');
+  const post = (body) => handleApi(new Request('http://x/api/diagram', { method: 'POST', body: JSON.stringify(body) })).then((r) => r.json());
+  const tfJson = {
+    variable: { n: { default: 1 } },
+    resource: {
+      aws_vpc: { main: { cidr_block: '10.0.0.0/16' } },
+      aws_security_group: { web: { vpc_id: '${aws_vpc.main.id}', ingress: [{ from_port: 443, to_port: 443, protocol: 'tcp', cidr_blocks: ['0.0.0.0/0'] }], tags: { Name: 'web' } } },
+      aws_instance: { app: { count: '${var.n}', vpc_security_group_ids: ['${aws_security_group.web.id}'] } },
+    },
+  };
+  const hcl = tfJsonToHcl(tfJson);
+  assert.match(hcl, /vpc_id = aws_vpc\.main\.id/);
+  assert.match(hcl, /ingress \{/);
+  assert.match(hcl, /tags = \{/);
+  // pasted .tf.json
+  const pasted = await post({ code: JSON.stringify(tfJson) });
+  assert.deepEqual(pasted.graph.nodes.map((n) => n.id).sort(), ['aws_instance.app', 'aws_security_group.web', 'aws_vpc.main']);
+  assert.ok(pasted.graph.edges.some((e) => e.from === 'aws_instance.app' && e.to === 'aws_security_group.web'));
+  // zip with .tf.json plus terraform.tfvars.json
+  const files = [{ path: 'main.tf.json', content: JSON.stringify(tfJson) }, { path: 'terraform.tfvars.json', content: JSON.stringify({ n: 4 }) }];
+  const zip = await post({ files });
+  assert.equal(zip.graph.nodes.find((n) => n.id === 'aws_instance.app').instances, 4);
+  assert.ok(zip.tfvarsApplied);
+  // pasted tfvars JSON -> sketch
+  assert.equal(fromPastedJson('{"vpc_cidr":"10.0.0.0/16"}').kind, 'vars');
+  const vars = await post({ code: JSON.stringify({ vpc_cidr: '10.0.0.0/16', public_subnets: ['10.0.1.0/24'], instance_count: 2 }) });
+  assert.ok(vars.graph.nodes.some((n) => n.id === 'aws_vpc.vpc') && vars.graph.nodes.find((n) => n.id === 'aws_instance.app').instances === 2);
+  assert.equal(vars.checks[0].level, 'warn');
+  assert.equal(fromPastedJson('not json'), null);
+});
