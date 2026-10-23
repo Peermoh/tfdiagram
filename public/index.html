@@ -137,7 +137,10 @@
   <details id="allcode" hidden><summary>Terraform code</summary>
     <p class="opts"><label>File: <select id="codefile"></select></label></p>
     <pre id="codeview" class="code"></pre></details>
-  <details id="mcpbox"><summary>Use with AI (MCP): connect TFDiagram to Claude or another AI app</summary>
+  <details><summary>Mermaid source</summary><pre id="src"></pre></details>
+  </div>
+  <div id="panel" hidden></div>
+  <details id="mcpbox" open><summary>Use with AI (MCP): connect TFDiagram to Claude or another AI app</summary>
     <p>TFDiagram has an MCP server, so your own AI app can read a repo's architecture and answer questions, review it for risks or explain it. Your AI plan does the thinking; nothing is billed here.</p>
     <p>Server URL: <code id="mcpurl"></code> <button type="button" id="mcpcopy" style="padding:3px 10px;font-size:13px">Copy</button></p>
     <ul>
@@ -146,9 +149,6 @@
       <li>Then ask, for example: <i>"Analyse https://github.com/owner/repo with TFDiagram and tell me what is exposed to the internet."</i></li>
     </ul>
     <p class="tag">Tools: <code>analyze_terraform_repo</code>, <code>analyze_terraform_code</code>, <code>get_resource_code</code>. Public GitHub repos and pasted code only. The Terraform you send is processed here and not stored.</p></details>
-  <details><summary>Mermaid source</summary><pre id="src"></pre></details>
-  </div>
-  <div id="panel" hidden></div>
   <p id="iconNote" class="legend" hidden>AWS and Azure service icons are the property of Amazon Web Services and Microsoft and are shown unmodified, as supplied by them, to label diagrams. This tool is not affiliated with or endorsed by either company.</p>
 </main>
 <script src="vendor/dagre.min.js"></script>
