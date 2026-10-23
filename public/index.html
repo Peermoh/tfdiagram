@@ -1310,6 +1310,7 @@ async function search(page) {
     $('status').textContent = lastSearchStatus;
   } catch (e) {
     $('status').className = 'err'; $('status').textContent = e.message;
+    if (/rate limited/.test(e.message) && !$('token').value) { $('status').textContent = `${e.message}. The token box is open under More options.`; if (!$('optpanel').classList.contains('open')) $('optbtn').click(); $('tokenLabel').hidden = false; }
   } finally { $('go').disabled = false; }
 }
 // Clear: empties the search box and the results, forgets any search still on its way, and hides "back to results".
